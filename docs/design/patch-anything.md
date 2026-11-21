@@ -1,6 +1,6 @@
 # Design: proving a security fix (draft)
 
-Status: proposal, nothing built. Scope: fixes to the user's **own code**; dependency CVEs come later.
+Status: proposal, nothing built. Home: a new standalone repo. First scope: **dependency CVEs**; fixes to the user's own code come second.
 
 ## Idea
 
@@ -15,6 +15,33 @@ The recording supplies the first half. A pinned exploit case supplies the second
 the patch; the tool decides whether it is accepted. This is defensive: it takes a vulnerability you
 already know about (an advisory, a bug report, a failing test) and checks the fix, it does not
 search for or build attacks.
+
+## Phase 1: dependency CVEs
+
+Dependabot opens the bump; nothing tells you whether the app still behaves the same after it.
+Here the recording is the proof.
+
+```
+audit ──> record ──> bump ──> replay ──> adapt ──> report
+advisory   app, on    fixed     every      agent      bump + proof
+→ package, current    version   case vs    fixes call
+fixed ver  version    or backport recording sites
+```
+
+| Step | What it does |
+| --- | --- |
+| audit | Read the advisory from the lockfile audit (`npm audit --json`, `pip-audit`, `cargo audit --json`, `osv-scanner`): package, vulnerable range, first fixed version. Nothing is scanned for new issues; the advisory is input. |
+| record | Run the app on its own tests and recorded inputs with the **current** version; save outputs, errors and effects. |
+| bump | Install the first fixed version in a scratch copy. If no fixed version exists, stop and say so. |
+| replay | Run every case against the bumped tree and list differences with input, before and after. |
+| adapt | If differences or build errors appear, the agent changes only the app's call sites (never the dependency) and replay runs again. Intended changes go in `allowed-changes.toml` with a reason. |
+| report | `PATCH_REPORT.md`: advisory id, versions, cases matched, allowed changes, and what the recording did not cover. |
+
+Limit: a green replay shows the app's recorded behaviour is unchanged, not that the
+vulnerability is unreachable. Where the advisory names a trigger input, pin it as a finding case
+(below) to confirm the bumped version handles it.
+
+## Phase 2: your own code
 
 ## Loop
 
@@ -60,7 +87,7 @@ catch an over-eager fix that "solves" an injection by rejecting valid input.
 
 ## Open questions
 
-1. Name and home: new repo, or a `patch` subcommand next to `go`.
+1. Name of the new repo, and whether it depends on rust-anything's crate or vendors the record/replay code.
 2. Does `allowed-changes.toml` need per-field matching, or is whole-case allow enough for v1?
 3. Which language plugin first: TS/JS and Python already have effect recording.
-4. Dependency-CVE mode: bump the dependency, replay the recording, report the delta.
+4. Ecosystems for phase 1: npm and PyPI first (their harnesses already record effects), Cargo and Go after.
