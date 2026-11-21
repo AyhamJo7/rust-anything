@@ -35,10 +35,21 @@ fn whole_app(out: &mut String, w: &crate::whole_app::WholeApp) -> std::fmt::Resu
         )?;
         writeln!(out, "| --- | --- | --- | --- | --- | --- |")?;
         for d in &w.dependencies {
+            let others: Vec<String> = d
+                .names
+                .iter()
+                .filter(|n| **n != d.name)
+                .map(|n| format!("`{n}`"))
+                .collect();
             writeln!(
                 out,
-                "| `{}` | {} | {} | {} | {} | {} |",
+                "| `{}`{} | {} | {} | {} | {} | {} |",
                 d.name,
+                if others.is_empty() {
+                    String::new()
+                } else {
+                    format!(" (also {})", others.join(", "))
+                },
                 if d.declared { "yes" } else { "no" },
                 d.used_by,
                 d.crates.unwrap_or("?"),

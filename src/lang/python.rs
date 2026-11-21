@@ -84,20 +84,7 @@ pub fn discover(root: &Path) -> Result<Workspace> {
         .map(|dir| read_package(root, dir))
         .collect();
     if !packages.iter().any(|p| p.dir.is_empty()) {
-        packages.push(Package {
-            name: root
-                .file_name()
-                .map_or_else(|| "root".into(), |n| n.to_string_lossy().into_owned()),
-            dir: String::new(),
-            src_root: if root.join("src").is_dir() {
-                "src".into()
-            } else {
-                String::new()
-            },
-            deps: Vec::new(),
-            dev_deps: Vec::new(),
-            namespaces: Vec::new(),
-        });
+        packages.push(read_package(root, ""));
     }
     packages.sort_by(|a, b| a.dir.cmp(&b.dir));
     files.sort_by(|a, b| a.0.cmp(&b.0));
@@ -143,17 +130,30 @@ fn read_package(root: &Path, dir: &str) -> Package {
             .and_then(|p| p.get("dependencies"))
             .and_then(|d| d.as_array())
         {
-            deps.extend(list.iter().filter_map(|d| d.as_str()).map(requirement_name));
+            deps.extend(
+                list.iter()
+                    .filter_map(|d| d.as_str())
+                    .filter_map(requirement_name),
+            );
+        }
+        if let Some(t) = doc
+            .get("tool")
+            .and_then(|t| t.get("poetry"))
+            .and_then(|p| p.get("dependencies"))
+            .and_then(|d| d.as_table_like())
+        {
+            deps.extend(
+                t.iter()
+                    .map(|(k, _)| normalized_name(k))
+                    .filter(|k| k != "python"),
+            );
         }
     }
-    if let Ok(text) = std::fs::read_to_string(root.join(join("requirements.txt"))) {
-        deps.extend(
-            text.lines()
-                .map(str::trim)
-                .filter(|l| !l.is_empty() && !l.starts_with('#'))
-                .map(requirement_name),
-        );
-    }
+    requirements_from(
+        &root.join(join("requirements.txt")),
+        &mut deps,
+        &mut BTreeSet::new(),
+    );
     let src = join("src");
     Package {
         name: name.unwrap_or_else(|| {
@@ -177,12 +177,54 @@ fn read_package(root: &Path, dir: &str) -> Package {
 }
 
 /// `requests>=2.0; python_version>"3"` -> `requests`.
-fn requirement_name(line: &str) -> String {
-    normalized_name(
-        line.split(|c: char| !(c.is_alphanumeric() || c == '-' || c == '_' || c == '.'))
-            .next()
-            .unwrap_or(""),
-    )
+/// `None` when the line points at a VCS checkout, an archive URL or a local file. Those are not
+/// packages a registry serves: reading the first run of letters names `git+https://...` as `git`
+/// and `./vendor/foo.whl` as `.`.
+fn requirement_name(spec: &str) -> Option<String> {
+    let spec = spec.trim();
+    let name: String = spec
+        .chars()
+        .take_while(|c| c.is_alphanumeric() || "-_.".contains(*c))
+        .collect();
+    if !name.starts_with(|c: char| c.is_ascii_alphanumeric()) {
+        return None;
+    }
+    let rest = spec[name.len()..].trim_start();
+    // A trailing `# comment` after the name leaves the name intact.
+    let carried = rest.is_empty()
+        || rest.starts_with(['[', '(', '=', '<', '>', '!', '~', ';', ',', '@', '#']);
+    carried.then(|| normalized_name(&name))
+}
+
+/// The packages a requirements file names, following `-r` / `--requirement` includes: a file that
+/// is reached twice is read once, and a cycle stops instead of recursing. `pip` resolves an include
+/// against the directory of the file that names it, not the project root.
+fn requirements_from(file: &Path, out: &mut Vec<String>, seen: &mut BTreeSet<std::path::PathBuf>) {
+    let key = std::fs::canonicalize(file).unwrap_or_else(|_| file.to_path_buf());
+    if !seen.insert(key) {
+        return;
+    }
+    let Ok(text) = std::fs::read_to_string(file) else {
+        return;
+    };
+    let dir = file.parent().unwrap_or(Path::new(""));
+    for line in text.lines() {
+        let line = line.trim();
+        if let Some(rest) = line
+            .strip_prefix("--requirement")
+            .or_else(|| line.strip_prefix("-r"))
+        {
+            let included = rest.trim_start_matches(['=', ' ', '\t']);
+            if !included.is_empty() {
+                requirements_from(&dir.join(included), out, seen);
+            }
+            continue;
+        }
+        if line.is_empty() || line.starts_with(['#', '-']) {
+            continue;
+        }
+        out.extend(requirement_name(line));
+    }
 }
 
 /// A distribution name as pip compares it (PEP 503): `Core_Lib.x` -> `core-lib-x`.

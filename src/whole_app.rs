@@ -4,7 +4,7 @@
 //! to the user in the grilling round.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use regex::Regex;
 use serde::Serialize;
@@ -41,8 +41,13 @@ pub struct EntryPoint {
 
 #[derive(Debug, Serialize)]
 pub struct Dependency {
+    /// The manifest's spelling when the library is declared, else the one the code imports.
     pub name: String,
-    /// Listed in a manifest (package.json, pyproject, go.mod, Gemfile, pom.xml, ...).
+    /// Every spelling of the library, sorted: the names the code imports and the manifest
+    /// declares that the crate table resolves to the same row (`yaml`, `pyyaml`).
+    pub names: Vec<String>,
+    /// Listed in a manifest (package.json, pyproject, go.mod, Gemfile, pom.xml, ...), under any
+    /// of `names`.
     pub declared: bool,
     /// Units that import it.
     pub used_by: usize,
@@ -309,278 +314,26 @@ fn csproj_files(root: &Path) -> Vec<String> {
     .collect()
 }
 
-fn normalize(lang: Lang, name: &str) -> String {
-    match lang {
-        Lang::Python => name.to_lowercase().replace('_', "-"),
-        _ => name.to_string(),
-    }
-}
-
-/// A build file with its comments removed, so a commented-out `implementation("a:b:1")` is not
-/// read as a dependency the project declares. `//` counts only at the start of a line: a trailing
-/// one follows code the project does declare.
-fn without_comments(text: &str) -> String {
-    let mut unblocked = String::with_capacity(text.len());
-    let mut chars = text.chars().peekable();
-    let mut quote = None;
-    while let Some(c) = chars.next() {
-        match quote {
-            Some(q) => {
-                unblocked.push(c);
-                if c == '\\' {
-                    if let Some(escaped) = chars.next() {
-                        unblocked.push(escaped);
-                    }
-                } else if c == q || c == '\n' {
-                    quote = None;
-                }
-            }
-            None if c == '"' || c == '\'' => {
-                quote = Some(c);
-                unblocked.push(c);
-            }
-            None if c == '/' && chars.peek() == Some(&'*') => {
-                chars.next();
-                let mut last = ' ';
-                for c in chars.by_ref() {
-                    if last == '*' && c == '/' {
-                        break;
-                    }
-                    last = c;
-                }
-            }
-            None => unblocked.push(c),
-        }
-    }
-    unblocked
-        .lines()
-        .filter(|line| !line.trim_start().starts_with("//"))
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-/// Whether a Ruby line opens a block that its own `end` closes.
-fn opens_a_block(line: &str) -> bool {
-    line.ends_with(" do")
-        || line.contains(" do |")
-        || ["if ", "unless ", "while ", "until ", "case "]
-            .iter()
-            .any(|kw| line.starts_with(kw))
-}
-
-/// The package a requirement line names, or `None` when the line points at a VCS checkout, an
-/// archive URL or a local file. Those are not packages a registry serves: reading the first run of
-/// letters names `git+https://...` as `git` and `./vendor/foo.whl` as `.`.
-fn requirement_name(spec: &str) -> Option<String> {
-    let spec = spec.trim();
-    let name: String = spec
-        .chars()
-        .take_while(|c| c.is_alphanumeric() || "-_.".contains(*c))
-        .collect();
-    if !name.starts_with(|c: char| c.is_ascii_alphanumeric()) {
-        return None;
-    }
-    let rest = spec[name.len()..].trim_start();
-    // A trailing `# comment` after the name leaves the name intact.
-    let carried = rest.is_empty()
-        || rest.starts_with(['[', '(', '=', '<', '>', '!', '~', ';', ',', '@', '#']);
-    carried.then_some(name)
-}
-
-/// The packages a requirements file names, following `-r` / `--requirement` includes: a file that
-/// is reached twice is read once, and a cycle stops instead of recursing. `pip` resolves an include
-/// against the directory of the file that names it, not the project root.
-fn requirements_from(file: &Path, out: &mut BTreeSet<String>, seen: &mut BTreeSet<PathBuf>) {
-    let key = std::fs::canonicalize(file).unwrap_or_else(|_| file.to_path_buf());
-    if !seen.insert(key) {
-        return;
-    }
-    let Ok(text) = std::fs::read_to_string(file) else {
-        return;
-    };
-    let dir = file.parent().unwrap_or(Path::new(""));
-    for line in text.lines() {
-        let line = line.trim();
-        if let Some(rest) = line
-            .strip_prefix("--requirement")
-            .or_else(|| line.strip_prefix("-r"))
-        {
-            let included = rest.trim_start_matches(['=', ' ', '\t']);
-            if !included.is_empty() {
-                requirements_from(&dir.join(included), out, seen);
-            }
-            continue;
-        }
-        if line.is_empty() || line.starts_with(['#', '-']) {
-            continue;
-        }
-        if let Some(name) = requirement_name(line) {
-            out.insert(name);
-        }
-    }
-}
-
-/// Dependencies the manifests declare (runtime ones, not dev or test).
+/// Dependencies the manifests declare (runtime ones, not dev or test), as each language's
+/// `discover` reads them. A package's dependency on another package of the same workspace is
+/// not an external one.
 pub fn declared(root: &Path, lang: Lang) -> BTreeSet<String> {
-    let mut out = BTreeSet::new();
-    match lang {
-        Lang::Ts => {
-            if let Ok(pkg) = serde_json::from_str::<Value>(&read(root, "package.json"))
-                && let Some(deps) = pkg["dependencies"].as_object()
-            {
-                out.extend(deps.keys().cloned());
-            }
-        }
-        Lang::Python => {
-            if let Ok(doc) = read(root, "pyproject.toml").parse::<DocumentMut>() {
-                if let Some(list) = doc
-                    .get("project")
-                    .and_then(|p| p.get("dependencies"))
-                    .and_then(|d| d.as_array())
-                {
-                    out.extend(
-                        list.iter()
-                            .filter_map(|v| v.as_str())
-                            .filter_map(requirement_name),
-                    );
-                }
-                if let Some(t) = doc
-                    .get("tool")
-                    .and_then(|t| t.get("poetry"))
-                    .and_then(|p| p.get("dependencies"))
-                    .and_then(|d| d.as_table_like())
-                {
-                    out.extend(
-                        t.iter()
-                            .map(|(k, _)| k.to_string())
-                            .filter(|k| k != "python"),
-                    );
-                }
-            }
-            requirements_from(
-                &root.join("requirements.txt"),
-                &mut out,
-                &mut BTreeSet::new(),
-            );
-        }
-        Lang::Go => {
-            let gomod = read(root, "go.mod");
-            let mut in_block = false;
-            for line in gomod.lines() {
-                let line = line.trim();
-                if line.starts_with("require (") {
-                    in_block = true;
-                    continue;
-                }
-                if in_block && line == ")" {
-                    in_block = false;
-                    continue;
-                }
-                let spec = if in_block {
-                    Some(line)
-                } else {
-                    line.strip_prefix("require ")
-                };
-                // A comment line inside `require ( ... )` is not a module; `lang::go`'s own
-                // `requirements()` already skips it, and this copy is what `analyze` reports.
-                if let Some(spec) = spec
-                    && !spec.contains("// indirect")
-                    && let Some(module) = spec.split_whitespace().next()
-                    && !module.starts_with("//")
-                {
-                    out.insert(module.to_string());
-                }
-            }
-        }
-        Lang::Ruby => {
-            let gem = Regex::new(r#"^\s*gem\s+['"]([^'"]+)['"]"#).expect("valid regex");
-            let spec = Regex::new(r#"add_(?:runtime_)?dependency\s*\(?\s*['"]([^'"]+)['"]"#)
-                .expect("valid regex");
-            let mut text = read(root, "Gemfile");
-            for entry in std::fs::read_dir(root).into_iter().flatten().flatten() {
-                if entry.path().extension().is_some_and(|x| x == "gemspec") {
-                    text += "\n";
-                    text += &std::fs::read_to_string(entry.path()).unwrap_or_default();
-                }
-            }
-            // A gem belongs to the runtime dependencies unless a `group` block encloses it. Blocks
-            // nest (`platform :mri do ... end`), so the group ends at its own `end`, not at the
-            // first one: otherwise every gem after a nested block is read as a runtime dependency.
-            let mut depth = 0usize;
-            let mut group_at: Option<usize> = None;
-            for line in text.lines() {
-                let t = line.trim();
-                if t.starts_with("group ") {
-                    group_at = Some(depth);
-                }
-                if opens_a_block(t) {
-                    depth += 1;
-                }
-                if t == "end" || t.starts_with("end ") {
-                    depth = depth.saturating_sub(1);
-                    if group_at.is_some_and(|at| depth <= at) {
-                        group_at = None;
-                    }
-                }
-                if let Some(c) = gem.captures(line).filter(|_| group_at.is_none()) {
-                    out.insert(c[1].to_string());
-                }
-                if let Some(c) = spec.captures(line) {
-                    out.insert(c[1].to_string());
-                }
-            }
-        }
-        Lang::Java | Lang::Kotlin => {
-            let pom = read(root, "pom.xml");
-            // A commented-out `<!-- <dependency> ... </dependency> -->` is not one the project
-            // declares; the block regex below would otherwise match inside the comment.
-            let pom = crate::lang::syntax::without_xml_comments(&pom);
-            let dep = Regex::new(r"(?s)<dependency>(.*?)</dependency>").expect("valid regex");
-            let tag = |block: &str, name: &str| -> Option<String> {
-                let re = Regex::new(&format!(r"<{name}>\s*([^<]+?)\s*</{name}>")).ok()?;
-                re.captures(block).map(|c| c[1].to_string())
-            };
-            for c in dep.captures_iter(&pom) {
-                let block = &c[1];
-                if tag(block, "scope").is_some_and(|s| s == "test") {
-                    continue;
-                }
-                if let (Some(g), Some(a)) = (tag(block, "groupId"), tag(block, "artifactId")) {
-                    out.insert(format!("{g}:{a}"));
-                }
-            }
-            let gradle = read(root, "build.gradle") + &read(root, "build.gradle.kts");
-            // A commented-out `implementation("a:b:1")` is not a dependency the project declares.
-            let gradle = without_comments(&gradle);
-            let line =
-                Regex::new(r#"\b(?:implementation|api|compile)\s*\(?\s*['"]([^:'"]+:[^:'"]+)"#)
-                    .expect("valid regex");
-            out.extend(line.captures_iter(&gradle).map(|c| c[1].to_string()));
-        }
-        Lang::Php => {
-            if let Ok(doc) = serde_json::from_str::<Value>(&read(root, "composer.json"))
-                && let Some(deps) = doc["require"].as_object()
-            {
-                out.extend(
-                    deps.keys()
-                        .filter(|k| k.contains('/') && !k.starts_with("ext-"))
-                        .cloned(),
-                );
-            }
-        }
-        Lang::Csharp => {
-            for project in csproj_files(root) {
-                let text = read(root, &project);
-                if !crate::lang::csharp::is_test_project(&text) {
-                    out.extend(crate::lang::csharp::package_references(&text));
-                }
-            }
-        }
-        Lang::C => {}
-    }
-    out.into_iter()
-        .filter(|n| !n.is_empty())
-        .map(|n| normalize(lang, &n))
+    let ws = match lang {
+        Lang::Ts => crate::ts::discover::discover(root),
+        _ => crate::lang::discover(lang, root),
+    };
+    let Ok(ws) = ws else {
+        return BTreeSet::new();
+    };
+    let packages = &ws.packages;
+    packages
+        .iter()
+        .flat_map(|p| {
+            p.deps.iter().filter(move |d| {
+                !d.is_empty() && !packages.iter().any(|q| q.dir != p.dir && &q.name == *d)
+            })
+        })
+        .cloned()
         .collect()
 }
 
@@ -618,30 +371,48 @@ pub fn whole_app(root: &Path, report: &Report) -> WholeApp {
         }
     }
 
-    let mut used: BTreeMap<String, usize> = BTreeMap::new();
+    let declared = declared(root, lang);
+    let imported: BTreeSet<&String> = report.units.iter().flat_map(|u| &u.external_deps).collect();
+    let key = |name: &str| match crate_for(lang, name) {
+        Some(m) => (Some(m.row), String::new()),
+        None => (None, name.to_string()),
+    };
+    let mut joined: BTreeMap<(Option<usize>, String), Dependency> = BTreeMap::new();
+    for name in imported.into_iter().chain(&declared) {
+        let found = crate_for(lang, name);
+        let dep = joined.entry(key(name)).or_insert_with(|| Dependency {
+            name: String::new(),
+            names: Vec::new(),
+            declared: false,
+            used_by: 0,
+            crates: found.map(|m| m.crates),
+            fit: fit_label(found.map(|m| m.fit)),
+            note: found.map_or("", |m| m.note),
+        });
+        if !dep.names.contains(name) {
+            dep.names.push(name.clone());
+        }
+        dep.declared |= declared.contains(name);
+    }
     for unit in &report.units {
-        for dep in &unit.external_deps {
-            *used.entry(dep.clone()).or_default() += 1;
+        let keys: BTreeSet<_> = unit.external_deps.iter().map(|n| key(n)).collect();
+        for k in keys {
+            if let Some(dep) = joined.get_mut(&k) {
+                dep.used_by += 1;
+            }
         }
     }
-    let declared = declared(root, lang);
-    let names: BTreeSet<String> = used
-        .keys()
-        .cloned()
-        .chain(declared.iter().cloned())
-        .collect();
-    let mut dependencies: Vec<Dependency> = names
-        .into_iter()
-        .map(|name| {
-            let found = crate_for(lang, &name);
-            Dependency {
-                declared: declared.contains(&name),
-                used_by: used.get(&name).copied().unwrap_or(0),
-                crates: found.map(|m| m.crates),
-                fit: fit_label(found.map(|m| m.fit)),
-                note: found.map_or("", |m| m.note),
-                name,
-            }
+    let mut dependencies: Vec<Dependency> = joined
+        .into_values()
+        .map(|mut dep| {
+            dep.names.sort();
+            dep.name = dep
+                .names
+                .iter()
+                .find(|n| declared.contains(*n))
+                .unwrap_or(&dep.names[0])
+                .clone();
+            dep
         })
         .collect();
     let rank = |fit: &str| match fit {

@@ -728,3 +728,136 @@ fn a_function_import_does_not_name_a_composer_package() {
         user.internal_deps
     );
 }
+
+fn scratch(name: &str, files: &[(&str, &str)]) -> std::path::PathBuf {
+    let root = std::env::temp_dir().join(format!("ra-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    for (path, text) in files {
+        let path = root.join(path);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    }
+    root
+}
+
+#[test]
+fn the_plugin_and_whole_app_read_a_manifest_the_same_way() {
+    use rust_anything::lang::{Lang, discover};
+    let fixture = |dir: &str| {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures")
+            .join(dir)
+    };
+
+    let ws = discover(Lang::Ruby, &fixture("ruby-gems")).unwrap();
+    let gemfile = ws.packages.iter().find(|p| p.dir.is_empty()).unwrap();
+    assert_eq!(gemfile.deps, ["rack"]);
+    assert_eq!(gemfile.dev_deps, ["rspec", "byebug", "debug"]);
+    let declared: Vec<String> =
+        rust_anything::whole_app::declared(&fixture("ruby-gems"), Lang::Ruby)
+            .into_iter()
+            .collect();
+    assert_eq!(declared, gemfile.deps);
+
+    let ws = discover(Lang::Python, &fixture("python-includes")).unwrap();
+    let mut deps = ws.packages[0].deps.clone();
+    deps.sort();
+    deps.dedup();
+    assert_eq!(deps, ["flask", "pytest", "ruff", "six"]);
+
+    let ws = discover(Lang::Java, &fixture("java-pom")).unwrap();
+    assert!(
+        ws.packages[0]
+            .deps
+            .iter()
+            .all(|d| !d.starts_with("com.example:")),
+        "a commented-out dependency is not one: {:?}",
+        ws.packages[0].deps
+    );
+}
+
+#[test]
+fn a_python_library_imported_as_yaml_and_declared_as_pyyaml_is_one_dependency() {
+    let root = scratch(
+        "yaml-join",
+        &[
+            (
+                "pyproject.toml",
+                "[project]\nname = \"conf\"\ndependencies = [\"PyYAML>=6\", \"orjson\"]\n",
+            ),
+            (
+                "conf/load.py",
+                "import yaml\nimport left_pad_but_new\n\ndef load(text: str) -> dict:\n    return yaml.safe_load(text)\n",
+            ),
+        ],
+    );
+    let report = analyze(&root).unwrap();
+    let w = rust_anything::whole_app::whole_app(&root, &report);
+    std::fs::remove_dir_all(&root).unwrap();
+    let yaml: Vec<_> = w
+        .dependencies
+        .iter()
+        .filter(|d| d.names.iter().any(|n| n == "yaml" || n == "pyyaml"))
+        .collect();
+    assert_eq!(yaml.len(), 1, "{:?}", w.dependencies);
+    assert_eq!(yaml[0].names, ["pyyaml", "yaml"]);
+    assert_eq!(yaml[0].name, "pyyaml");
+    assert!(yaml[0].declared);
+    assert_eq!(yaml[0].used_by, 1);
+    let unknown = w
+        .dependencies
+        .iter()
+        .find(|d| d.name == "left-pad-but-new")
+        .unwrap_or_else(|| panic!("{:?}", w.dependencies));
+    assert_eq!((unknown.names.len(), unknown.declared), (1, false));
+    let json = w.dependencies.iter().find(|d| d.name == "orjson").unwrap();
+    assert_eq!((json.used_by, json.declared), (0, true));
+}
+
+#[test]
+fn a_kotlin_import_and_its_gradle_coordinates_are_one_dependency() {
+    let root = scratch(
+        "room-join",
+        &[
+            (
+                "build.gradle.kts",
+                "plugins { kotlin(\"jvm\") version \"2.0.21\" }\n\
+                 dependencies { implementation(\"androidx.room:room-runtime:2.6.1\") }\n",
+            ),
+            (
+                "src/main/kotlin/com/acme/G.kt",
+                "package com.acme\nimport androidx.room.RoomDatabase\nobject G { @JvmStatic fun f(): String = \"x\" }\n",
+            ),
+        ],
+    );
+    let report = analyze(&root).unwrap();
+    let w = rust_anything::whole_app::whole_app(&root, &report);
+    std::fs::remove_dir_all(&root).unwrap();
+    let room: Vec<_> = w
+        .dependencies
+        .iter()
+        .filter(|d| d.names.iter().any(|n| n.starts_with("androidx.room")))
+        .collect();
+    assert_eq!(room.len(), 1, "{:?}", w.dependencies);
+    assert_eq!(
+        room[0].names,
+        ["androidx.room", "androidx.room:room-runtime"]
+    );
+    assert_eq!(room[0].name, "androidx.room:room-runtime");
+    assert!(room[0].declared);
+    assert_eq!(room[0].used_by, 1);
+    let json = serde_json::to_value(room[0]).unwrap();
+    assert_eq!(json["name"], "androidx.room:room-runtime");
+    assert_eq!(json["names"][0], "androidx.room");
+    let plan = rust_anything::report::markdown(
+        &rust_anything::analyze::Report {
+            whole_app: Some(w),
+            ..report
+        },
+        "room",
+    );
+    assert!(
+        plan.contains("`androidx.room:room-runtime` (also `androidx.room`)"),
+        "{plan}"
+    );
+}

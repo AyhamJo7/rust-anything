@@ -65,14 +65,16 @@ pub fn find(lang: &str, name: &str) -> Option<CrateMatch> {
     table()
         .get(lang)?
         .iter()
-        .find(|e| {
+        .enumerate()
+        .find(|(_, e)| {
             e.names.iter().any(|n| n == name)
                 || e.prefixes.iter().any(|p| name.starts_with(p.as_str()))
         })
-        .map(|e| CrateMatch {
+        .map(|(row, e)| CrateMatch {
             crates: &e.crates,
             fit: e.fit,
             note: &e.note,
+            row,
         })
 }
 

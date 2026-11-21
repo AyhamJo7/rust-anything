@@ -126,6 +126,21 @@
   `--add`, winget installs them with no compiler, linker or Windows SDK. Since winget adds nothing
   to Build Tools already installed, the fix also says how to add the workload by hand. A fix of
   several commands prints one per line.
+- `analyze --whole-app` lists a library once when the code imports it under one name and the
+  manifest declares it under another (`yaml` and `PyYAML`, `androidx.room` and
+  `androidx.room:room-runtime`, `active_support` and `activesupport`): names the crate table
+  resolves to the same row are one dependency. The JSON keeps `name` (the manifest's spelling
+  when declared) and adds `names`, every spelling; `declared` is true if any of them is, and
+  `used_by` counts each unit once. The Markdown plan shows the other spellings next to the name.
+  Names the table does not know stay separate.
+- `analyze --whole-app` reads declared dependencies from each language plugin's own manifest
+  parser instead of a second copy, so `analyze` and `--whole-app` agree, and every manifest in
+  the workspace counts, not only the root's (a dependency on another package of the workspace is
+  not an external one). The plugin parsers gained what only the copy had: Gradle and Maven
+  comments are skipped, a Gradle declaration on the same line as `dependencies {` is read,
+  requirements files follow `-r` includes and skip VCS, URL and path lines, Poetry dependencies
+  count, a gem inside a `group` block is a development dependency, and `add_dependency` is read
+  on any receiver. TS/JS counts `peerDependencies` and `optionalDependencies` as declared too.
 
 ## 2.1.0 (2026-11-20)
 

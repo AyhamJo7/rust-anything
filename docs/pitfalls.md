@@ -216,6 +216,15 @@ newer directory with only `source.properties`, which must not shadow a working N
 the NDK's clang, so `cargo-ndk` is not needed, and cargo runs in the crate's directory so the
 caller's `.cargo/config.toml` cannot leak into the generated crate.
 
+**Two parsers for one manifest drifted apart.** `whole_app::declared()` re-read go.mod, pom.xml,
+Gradle files, Gemfiles and requirements files with its own code, and five comment fixes landed
+there while the plugins' `discover()` kept the bugs. Read a manifest in one place, the plugin's
+`discover()`, and have every other consumer take `Package.deps` from it.
+
+**A name join split one library in two.** `--whole-app` matched imported names (`yaml`) against
+declared ones (`PyYAML`) as strings, so most libraries showed up twice. Join spellings by the crate
+table row they resolve to (`CrateMatch::row`), not by the name or the `crates` text.
+
 ## Repository
 
 **A local path reached a committed manifest.** Demo manifests keep a placeholder `root`; check
