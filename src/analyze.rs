@@ -242,6 +242,9 @@ fn compiled_hint() -> &'static str {
 }
 
 pub fn analyze_lang(root: &Path, lang: Lang) -> Result<Report> {
+    if !root.exists() {
+        bail!("no folder {}", root.display());
+    }
     if root.is_file() {
         let ext = root
             .extension()

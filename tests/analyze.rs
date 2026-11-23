@@ -1021,3 +1021,45 @@ fn powershell_modules_get_their_bridge_notes_and_import_order() {
     assert!(names.contains(&"Pester"), "{names:?}");
     let _ = std::fs::remove_dir_all(&root);
 }
+
+#[test]
+fn analyze_refuses_a_folder_that_does_not_exist_in_every_language() {
+    use rust_anything::lang::Lang;
+    let missing = Path::new("/no/such/rust-anything-analyze-folder");
+    for lang in [
+        Lang::Ts,
+        Lang::Python,
+        Lang::C,
+        Lang::Go,
+        Lang::Ruby,
+        Lang::Java,
+        Lang::Kotlin,
+        Lang::Php,
+        Lang::Csharp,
+    ] {
+        let err = rust_anything::analyze::analyze_lang(missing, lang)
+            .expect_err("a missing folder is not an empty project");
+        assert_eq!(
+            err.to_string(),
+            format!("no folder {}", missing.display()),
+            "{lang:?}"
+        );
+    }
+}
+
+#[test]
+fn analyze_cli_names_a_missing_folder_once_and_fails() {
+    let path = "/no/such/rust-anything-analyze-folder";
+    for args in [
+        vec!["analyze", "--lang", "python", path],
+        vec!["analyze", path],
+    ] {
+        let out = std::process::Command::new(env!("CARGO_BIN_EXE_rust-anything"))
+            .args(&args)
+            .output()
+            .unwrap();
+        assert!(!out.status.success(), "{args:?}");
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert_eq!(err.trim(), format!("error: no folder {path}"), "{args:?}");
+    }
+}

@@ -679,6 +679,10 @@ fn run() -> Result<ExitCode> {
             lang,
             whole_app,
         } => {
+            // Said here, not under "analyzing X", so the path is named once (#267).
+            if !root.exists() {
+                anyhow::bail!("no folder {}", root.display());
+            }
             let lang = lang.unwrap_or_else(|| rust_anything::lang::Lang::detect(&root));
             let mut report = analyze::analyze_lang(&root, lang)
                 .with_context(|| format!("analyzing {}", root.display()))?;
