@@ -277,9 +277,15 @@ the current LTS. The first driver needed it; generated PowerShell now reads JSON
 `System.Text.Json.JsonDocument`, and `doctor` asks for 7.4.
 
 **.NET casing is not Unicode casing.** `ToLowerInvariant` leaves `İ` alone, `OrdinalIgnoreCase`
-never folds `ı` or `ſ` to ASCII, and `-replace '[a-z]'` (case-insensitive) matches `İ`:
-a port that folded with Rust's `to_lowercase` failed every recorded case with `İ`, `ı` or `ſ`.
+never folds `ı` or `ſ` to ASCII, and `-replace '[a-z]'` (case-insensitive) matches `İ` on
+macOS: a port that folded with Rust's `to_lowercase` failed every recorded case with `İ`, `ı` or `ſ`.
 Record `REGEX_TRAPS` for every PowerShell string function and fold per character as .NET does.
+
+**`-replace '[a-z]'` matching `İ` depended on the machine.** On macOS the
+case-insensitive class matches `İ`; on GitHub's Ubuntu 26.04 runner it does not, as under .NET's
+invariant globalization mode, so a port written against a macOS recording failed on Linux CI.
+The original itself differs, so record on the machine the code runs on, and reproduce with
+`DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1`.
 
 ## Repository
 

@@ -298,7 +298,14 @@ fn a_module_records_diffs_gates_and_switches_on() {
         "an empty mandatory string fails to bind, in the original and in the wrapper alike"
     );
 
-    std::fs::write(dir.join("src/port.rs"), PORT).unwrap();
+    let port = if pwsh("[string]([char]0x130 -match '^[a-z]$')") == "True\n" {
+        PORT.to_string()
+    } else {
+        let invariant = PORT.replace(" || c == '\\u{130}'", "");
+        assert_ne!(invariant, PORT);
+        invariant
+    };
+    std::fs::write(dir.join("src/port.rs"), &port).unwrap();
     harness::build(&dir).unwrap();
     let outcome = diff(&dir);
     assert_eq!(outcome.total, recorded.cases);
@@ -306,7 +313,7 @@ fn a_module_records_diffs_gates_and_switches_on() {
 
     std::fs::write(
         dir.join("src/port.rs"),
-        PORT.replace("Ok(fold(&a) == fold(&b))", "Ok(a == b)"),
+        port.replace("Ok(fold(&a) == fold(&b))", "Ok(a == b)"),
     )
     .unwrap();
     harness::build(&dir).unwrap();
@@ -320,7 +327,7 @@ fn a_module_records_diffs_gates_and_switches_on() {
         "{:?}",
         broken.mismatches
     );
-    std::fs::write(dir.join("src/port.rs"), PORT).unwrap();
+    std::fs::write(dir.join("src/port.rs"), &port).unwrap();
 
     let gate = rust_anything::gate::gate(&dir, &[]).unwrap();
     assert!(gate.passed, "{:?}", gate.checks);
@@ -355,7 +362,7 @@ fn a_module_records_diffs_gates_and_switches_on() {
     );
     std::fs::write(
         dir.join("src/port.rs"),
-        PORT.replace("Ok(fold(&a) == fold(&b))", "Ok(a == b)"),
+        port.replace("Ok(fold(&a) == fold(&b))", "Ok(a == b)"),
     )
     .unwrap();
     harness::build(&dir).unwrap();
