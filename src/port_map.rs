@@ -348,6 +348,8 @@ fn render(out: &mut String, map: &PortMap) -> std::fmt::Result {
     writeln!(out, "## Not ported yet\n")?;
     if let Some(e) = &map.analyze_error {
         writeln!(out, "`analyze` could not list the units: {e}\n")?;
+    } else if total == 0 {
+        writeln!(out, "No unit to port was found.\n")?;
     } else if map.not_ported.is_empty() {
         writeln!(out, "Every unit `analyze` found has a port.\n")?;
     } else {
@@ -379,5 +381,32 @@ fn list(items: &[String]) -> String {
             .map(|i| format!("`{i}`"))
             .collect::<Vec<_>>()
             .join(", ")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn empty_map() -> PortMap {
+        PortMap {
+            root: PathBuf::from("empty"),
+            ports: Vec::new(),
+            not_ported: Vec::new(),
+            glue: Vec::new(),
+            crate_errors: Vec::new(),
+            covered_by_broken: 0,
+            analyze_error: None,
+        }
+    }
+
+    #[test]
+    fn an_empty_map_says_no_unit_was_found() {
+        let text = markdown(&empty_map());
+        assert!(text.contains("No unit to port was found."), "{text}");
+        assert!(
+            !text.contains("Every unit `analyze` found has a port."),
+            "{text}"
+        );
     }
 }
