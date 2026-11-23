@@ -680,7 +680,10 @@ fn run() -> Result<ExitCode> {
             whole_app,
         } => {
             // Said here, not under "analyzing X", so the path is named once (#267).
-            if !root.exists() {
+            if !root
+                .try_exists()
+                .with_context(|| format!("reading {}", root.display()))?
+            {
                 anyhow::bail!("no folder {}", root.display());
             }
             let lang = lang.unwrap_or_else(|| rust_anything::lang::Lang::detect(&root));

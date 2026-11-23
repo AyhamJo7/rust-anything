@@ -1063,3 +1063,26 @@ fn analyze_cli_names_a_missing_folder_once_and_fails() {
         assert_eq!(err.trim(), format!("error: no folder {path}"), "{args:?}");
     }
 }
+
+#[cfg(unix)]
+#[test]
+fn analyze_reports_an_unreadable_parent_instead_of_a_missing_folder() {
+    use std::os::unix::fs::PermissionsExt;
+    let parent = std::env::temp_dir().join(format!("ra-analyze-locked-{}", std::process::id()));
+    let root = parent.join("project");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::set_permissions(&parent, std::fs::Permissions::from_mode(0o000)).unwrap();
+    let probe = std::fs::metadata(&root);
+    let result = rust_anything::analyze::analyze_lang(&root, rust_anything::lang::Lang::Python);
+    std::fs::set_permissions(&parent, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let _ = std::fs::remove_dir_all(&parent);
+    if probe.is_ok() {
+        return; // Running as root: the parent cannot hide the folder.
+    }
+    let err = result.expect_err("an unreadable parent is an error");
+    assert_ne!(
+        err.to_string(),
+        format!("no folder {}", root.display()),
+        "permission denied is not a missing folder"
+    );
+}
