@@ -85,6 +85,7 @@ paths in what you commit. CI runs it on every file.
   - `tests/go_internal_packages.rs`, `tests/go_mod_directives.rs`, `tests/go_module_paths.rs` and
     `tests/go_record_cgo.rs`: recording Go modules (internal packages, `go.mod` directives,
     versioned paths with spaces, cgo).
+  - `tests/go_unsigned.rs`: Go `uint64`, `uint` and `uintptr` keep their range in the port.
   - `tests/java_package_declaration.rs` and `tests/java_replay.rs`: Java recording with comments in
     the package declaration, and replay that tells `null` from a rejected argument.
   - `tests/ruby_recording.rs`: Ruby results that cannot be encoded.

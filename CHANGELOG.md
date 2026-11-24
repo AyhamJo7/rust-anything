@@ -4,6 +4,9 @@
 
 - `app record` and `app replay` fail with `port <port> is already in use` before spawning a server
   on an occupied port and check whether the child exited before treating the port as ready (#326).
+- `bridge` types Go `uint64` and `uint` as `u64` and `uintptr` as `usize` in `port.rs`, alone or as
+  slice items. They were `i64`, so a result above `i64::MAX` could not go back to Go and failed
+  `diff` (#357).
 
 ## 4.0.0 (2026-11-24)
 
