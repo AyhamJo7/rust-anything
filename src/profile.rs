@@ -1757,15 +1757,15 @@ fn report(
     }
 }
 
-/// Where the function `name` defined at `line` starts its child process: the call's line, and
-/// the program when the call names it literally. A call in a callback counts for the function
-/// around it, as the wait does. `None` when there is no such call, or several that start
-/// different programs.
 /// A file's top level: Python's `<module>`, Node's module function on line 1.
 fn is_top_level(name: &str, line: u32) -> bool {
     name == "<module>" || (line == 1 && name.starts_with("(anonymous)"))
 }
 
+/// Where the function `name` defined at `line` starts its child process: the call's line, and
+/// the program when the call names it literally. A call in a callback counts for the function
+/// around it, as the wait does. `None` when there is no such call, or several that start
+/// different programs.
 fn spawn_site(calls: &[SpawnCall], name: &str, line: u32) -> Option<(u32, Option<String>)> {
     let top = is_top_level(name, line);
     let own: Vec<&SpawnCall> = calls
