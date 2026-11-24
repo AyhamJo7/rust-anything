@@ -44,7 +44,7 @@ function LanguageMenu({ currentPath, locale, label }: { currentPath: string; loc
         </svg>
       </summary>
       <div className="absolute end-0 top-11 z-[70] w-[24rem] max-sm:fixed max-sm:inset-x-3 max-sm:top-[4.25rem] max-sm:w-auto rounded-xl border border-line bg-bg p-2 shadow-2xl">
-        <div className="px-2 pb-1.5 pt-1 text-xs font-semibold uppercase tracking-wide text-muted">{label}</div>
+        <div className="px-2 pb-1.5 pt-1 text-sm font-medium text-muted">{label}</div>
         <ul className="thin-scrollbar grid max-h-[min(30rem,75vh)] grid-cols-2 gap-0.5 overflow-y-auto">
           {LOCALES.map((l) => {
             const on = l.code === locale
@@ -127,7 +127,7 @@ export default function Navbar({
   return (
     <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-4 px-4 sm:px-6">
       <a href={L('/')} className="shrink-0 font-display text-[17px] font-bold" aria-label={ui.home}>
-        <Logo size={30} />
+        <Logo size={32} />
       </a>
       <div className="ml-auto flex items-center gap-1 sm:gap-2">
         <nav className="mr-2 hidden items-center gap-1 md:flex" aria-label="Main">
@@ -165,11 +165,12 @@ export default function Navbar({
         </a>
         <a
           href="https://github.com/sponsors/erkamyaman"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[#db61a2] hover:text-[#e879b4]"
+          className="group inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-2 text-sm text-fg/80 hover:text-fg xl:border xl:border-line xl:px-3 xl:hover:border-[#db61a2]/60"
           aria-label={ui.sponsor}
           title={ui.sponsor}
         >
-          <HeartIcon className="h-[20px] w-[20px]" />
+          <HeartIcon className="h-[18px] w-[18px] fill-transparent stroke-[#db61a2] stroke-2 transition-colors group-hover:fill-[#db61a2] motion-reduce:transition-none" />
+          <span className="hidden xl:inline">{ui.sponsor}</span>
         </a>
         <button
           type="button"
@@ -185,7 +186,7 @@ export default function Navbar({
       {menuOpen &&
         createPortal(
         <div data-theme={themeToggle ? undefined : "dark"} className="fixed inset-0 z-[65] lg:hidden" role="dialog" aria-modal="true" aria-label={ui.menu}>
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMenuOpen(false)} />
+          <button type="button" tabIndex={-1} aria-label={ui.closeMenu} className="absolute inset-0 cursor-default bg-black/50" onClick={() => setMenuOpen(false)} />
           <div className="absolute inset-y-0 right-0 flex w-[min(20rem,88vw)] flex-col border-l border-line bg-bg text-fg">
             <div className="flex h-16 items-center justify-between border-b border-line px-4">
               <span className="font-display font-bold"><Logo size={26} /></span>

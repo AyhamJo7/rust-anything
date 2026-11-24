@@ -1,6 +1,7 @@
 import { REPO_URL } from '../../lib/site'
 import { messages, withLocale, fill, type Messages } from '../../lib/i18n'
 import Rich from '../Rich'
+import CONTRIBUTORS from '../../content/contributors.json'
 import './landing.css'
 
 function RecordViz() {
@@ -337,6 +338,32 @@ export default function Home({ hero, install, locale = 'en' }: { hero: React.Rea
               </li>
             ))}
           </ul>
+        </div>
+      </section>
+
+      <section className="section" aria-labelledby="people-title">
+        <div className="wrap">
+          <div className="section-head">
+            <h2 id="people-title" className="section-title">
+              {fill(m.contributorsTitle, { n: String(CONTRIBUTORS.length) })}
+            </h2>
+            <p className="section-desc">{m.contributorsDesc}</p>
+          </div>
+          <ul className="people">
+            {CONTRIBUTORS.slice(0, 30).map((p) => (
+              <li key={p.login}>
+                <a href={`https://github.com/${p.login}`} className="person">
+                  <img src={`https://github.com/${p.login}.png?size=96`} width={48} height={48} alt="" loading="lazy" decoding="async" />
+                  <span>{p.login}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+          <div className="people-more">
+            <a className="btn btn-quiet" href={`${REPO_URL}/graphs/contributors`}>
+              {fill(m.contributorsAll, { n: String(CONTRIBUTORS.length) })}
+            </a>
+          </div>
         </div>
       </section>
 
