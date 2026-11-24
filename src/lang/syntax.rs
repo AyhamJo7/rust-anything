@@ -44,7 +44,12 @@ pub fn loc(text: &str, lang: crate::lang::Lang) -> usize {
 pub fn code_lines(text: &str, comment: &[&str]) -> usize {
     text.lines()
         .map(str::trim)
-        .filter(|l| !l.is_empty() && !comment.iter().any(|c| l.starts_with(c)))
+        .filter(|l| {
+            !l.is_empty()
+                && !comment
+                    .iter()
+                    .any(|c| l.starts_with(c) || *l == c.trim_end())
+        })
         .count()
 }
 
@@ -119,6 +124,12 @@ pub fn without_slash_comments(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_line_starting_with_a_dereference_is_code() {
+        let c = "/*\n * Doubles it.\n *\n */\nvoid twice(int *p) {\n  *p *= 2;\n}\n";
+        assert_eq!(loc(c, crate::lang::Lang::C), 3);
+    }
 
     #[test]
     fn a_block_comment_marker_inside_a_line_comment_does_not_swallow_the_next_lines() {

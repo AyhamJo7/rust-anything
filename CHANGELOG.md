@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `analyze` and `map` count lines of code the way `gate`'s size check does, leaving out comment
+  lines, so licence headers and JSDoc no longer move a file's Lines, Start here or priority (#342).
 - `profile` and `go` on a Node that refuses `--cpu-prof` in `NODE_OPTIONS` (22.14) pass it to a `node`
   command as arguments, and stop with a clear message for wrappers such as `npx` (#346).
 - `profile` leaves a script's top level (Python's `<module>`, Node's line-1 module function) out of
