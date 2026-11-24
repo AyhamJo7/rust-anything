@@ -34,9 +34,18 @@ pub fn named_children<'t>(node: Node<'t>) -> Vec<Node<'t>> {
     node.named_children(&mut cursor).collect()
 }
 
-/// Non-blank lines.
-pub fn loc(text: &str) -> usize {
-    text.lines().filter(|l| !l.trim().is_empty()).count()
+/// Lines of code: lines that are neither blank nor a comment. `analyze`, `map` and `gate`'s size
+/// check all count with it, so a unit's size means the same everywhere.
+pub fn loc(text: &str, lang: crate::lang::Lang) -> usize {
+    code_lines(text, lang.comment_prefixes())
+}
+
+/// Lines that are neither blank nor start with one of `comment`.
+pub fn code_lines(text: &str, comment: &[&str]) -> usize {
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !comment.iter().any(|c| l.starts_with(c)))
+        .count()
 }
 
 /// `text` with its `<!-- -->` comments removed (a `pom.xml`, a project file).
