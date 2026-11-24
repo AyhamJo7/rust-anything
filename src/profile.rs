@@ -435,24 +435,93 @@ fn in_repo(root: &Path, file: &str) -> bool {
 /// Functions, ms of waits on child processes no user function owns, and the run's ms.
 type Waited = (HashMap<Key, Acc>, f64, f64);
 
-fn node(root: &Path, command: &[String], work: &Path) -> Result<Waited> {
-    let dir = work.join("node");
-    std::fs::create_dir_all(&dir)?;
-    let mut options = std::env::var("NODE_OPTIONS").unwrap_or_default();
+/// How the workload starts with the CPU profiler on.
+#[derive(Debug, PartialEq)]
+struct NodeLaunch {
+    /// Arguments after the program.
+    args: Vec<String>,
+    /// `NODE_OPTIONS` to set, which also reaches the node processes a wrapper starts.
+    node_options: Option<String>,
+}
+
+/// Whether `program` is node itself rather than a wrapper such as `npx` or `npm`.
+fn is_node(program: &str) -> bool {
+    Path::new(program).file_stem().is_some_and(|s| s == "node")
+}
+
+/// The version of a node that refuses `--cpu-prof` in `NODE_OPTIONS` (22.14 does; 22.23 and 26
+/// do not), asked of the node itself. `None` when it accepts the flag or could not be asked.
+fn node_refusing_cpu_prof_option(program: &str) -> Option<String> {
+    let answer = crate::doctor::probe(
+        program,
+        &[
+            "-p",
+            "process.version + ' ' + process.allowedNodeEnvironmentFlags.has('--cpu-prof')",
+        ],
+    )?;
+    let (version, allowed) = answer.split_once(' ')?;
+    (allowed == "false").then(|| version.to_string())
+}
+
+/// `NODE_OPTIONS` reaches every node process, wrappers' children included, so it is used unless
+/// the node refuses `--cpu-prof` there (`refused` names that node's version). Such a node gets
+/// the flags as arguments, which every node accepts, and a wrapper is refused before it runs.
+fn node_launch(
+    command: &[String],
+    refused: Option<&str>,
+    dir: &Path,
+    inherited: &str,
+) -> Result<NodeLaunch> {
+    if let Some(version) = refused {
+        if !is_node(&command[0]) {
+            bail!(
+                "this Node ({version}) refuses --cpu-prof in NODE_OPTIONS, so `profile` cannot reach \
+                 the node that `{}` starts. Run the script with `node` directly, or use a newer Node \
+                 (24 allows it).",
+                command[0]
+            );
+        }
+        let mut args = vec![
+            "--cpu-prof".to_string(),
+            format!("--cpu-prof-dir={}", dir.to_string_lossy()),
+        ];
+        args.extend(command[1..].iter().cloned());
+        return Ok(NodeLaunch {
+            args,
+            node_options: None,
+        });
+    }
     let dir_option = dir
         .to_string_lossy()
         .replace('\\', "\\\\")
         .replace('"', "\\\"");
-    options.push_str(&format!(" --cpu-prof --cpu-prof-dir=\"{dir_option}\""));
-    let status = crate::process::status(
-        Command::new(&command[0])
-            .stdout(std::io::stderr())
-            .args(&command[1..])
-            .current_dir(root)
-            .env("NODE_OPTIONS", options.trim()),
-        crate::process::TESTS,
-    )
-    .with_context(|| format!("running {}", command[0]))?;
+    let options = format!("{inherited} --cpu-prof --cpu-prof-dir=\"{dir_option}\"");
+    Ok(NodeLaunch {
+        args: command[1..].to_vec(),
+        node_options: Some(options.trim().to_string()),
+    })
+}
+
+fn node(root: &Path, command: &[String], work: &Path) -> Result<Waited> {
+    let dir = work.join("node");
+    std::fs::create_dir_all(&dir)?;
+    let probed = if is_node(&command[0]) {
+        command[0].as_str()
+    } else {
+        "node"
+    };
+    let refused = node_refusing_cpu_prof_option(probed);
+    let inherited = std::env::var("NODE_OPTIONS").unwrap_or_default();
+    let launch = node_launch(command, refused.as_deref(), &dir, &inherited)?;
+    let mut run = Command::new(&command[0]);
+    run.stdout(std::io::stderr())
+        .args(&launch.args)
+        .current_dir(root);
+    if let Some(options) = &launch.node_options {
+        run.env("NODE_OPTIONS", options);
+    }
+    let status = crate::process::status(&mut run, crate::process::TESTS)
+        .with_context(|| format!("running {}", command[0]))?;
     if !status.success() {
         bail!("the workload failed ({status})");
     }
@@ -3065,6 +3134,65 @@ mod tests {
         assert_eq!(json["hot"].as_array().unwrap().len(), 25);
         assert!(!markdown(&r).contains("`parse`"));
         assert_eq!(crate::go::pick(&r, None).unwrap().function, "parse");
+    }
+
+    #[test]
+    fn a_node_that_refuses_the_option_is_profiled_through_arguments() {
+        let dir = Path::new("/tmp/prof dir");
+        let cmd = |c: &[&str]| c.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+
+        // Node 22.14 refuses --cpu-prof in NODE_OPTIONS, so a `node` command gets it as arguments.
+        let launch = node_launch(
+            &cmd(&["node", "app.mjs", "--n", "3"]),
+            Some("v22.14.0"),
+            dir,
+            "",
+        )
+        .unwrap();
+        assert_eq!(
+            launch,
+            NodeLaunch {
+                args: cmd(&[
+                    "--cpu-prof",
+                    "--cpu-prof-dir=/tmp/prof dir",
+                    "app.mjs",
+                    "--n",
+                    "3"
+                ]),
+                node_options: None,
+            }
+        );
+        let by_path = node_launch(
+            &cmd(&["/usr/bin/node", "app.mjs"]),
+            Some("v20.0.0"),
+            dir,
+            "",
+        )
+        .unwrap();
+        assert_eq!(by_path.args[0], "--cpu-prof");
+
+        // A wrapper starts node itself, so only NODE_OPTIONS could reach it: say why it cannot.
+        let err =
+            node_launch(&cmd(&["npx", "tsx", "app.ts"]), Some("v22.14.0"), dir, "").unwrap_err();
+        let err = err.to_string();
+        assert!(
+            err.contains("v22.14.0") && err.contains("`npx`") && err.contains("`node` directly"),
+            "{err}"
+        );
+
+        // A node that accepts it, or one that could not be asked, keeps NODE_OPTIONS and what was in it.
+        let launch = node_launch(
+            &cmd(&["npm", "run", "bench"]),
+            None,
+            dir,
+            "--max-old-space-size=4096",
+        )
+        .unwrap();
+        assert_eq!(launch.args, cmd(&["run", "bench"]));
+        assert_eq!(
+            launch.node_options.as_deref(),
+            Some("--max-old-space-size=4096 --cpu-prof --cpu-prof-dir=\"/tmp/prof dir\"")
+        );
     }
 
     #[test]

@@ -122,7 +122,7 @@ installs each one:
 | `kotlinc` | Kotlin units, and `record`/`diff` on a host JVM |
 | Android NDK, `adb`, `d8`, `kotlinc` and the three Rust Android targets | `build`/`record`/`diff --profile android` |
 | `wasm32-unknown-unknown` and the matching `wasm-bindgen` CLI | `bridge --kind wasm`, and the wasm demo |
-| Node 24 | `profile` (22.6+ runs everything else on the JS side) |
+| Node 24 | `profile` through `npx` or `npm run` (22.6+ runs everything else, `profile -- node ...` included) |
 | PHP, the .NET SDK | the PHP and C# whole-app paths |
 
 A missing optional runtime skips its tests instead of failing them; `RUST_ANYTHING_REQUIRE` makes

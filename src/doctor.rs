@@ -465,7 +465,7 @@ fn runtime_fix(r: &Runtime, status: Status, platform: Platform) -> Option<String
 }
 
 /// The program's banner (stdout, else stderr), or `None` when it did not run.
-fn probe(program: &str, args: &[&str]) -> Option<String> {
+pub(crate) fn probe(program: &str, args: &[&str]) -> Option<String> {
     let out =
         crate::process::output(Command::new(program).args(args), crate::process::QUICK).ok()?;
     if !out.success() {
@@ -546,7 +546,7 @@ fn runtime_check(
         (Some(b), _) => b.to_string(),
     };
     if r.name == "node" && status == Status::Ok && version.is_some_and(|v| v.0 < 24) {
-        detail.push_str("; works, but `profile` needs Node 24");
+        detail.push_str("; works, but `profile` through `npx` or `npm run` may need Node 24");
     }
     if r.name == "ruby" && status == Status::Outdated {
         detail.push_str("; magnus/rb-sys extensions do not build on Ruby 2");
