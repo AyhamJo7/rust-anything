@@ -109,7 +109,7 @@ export default function SearchDialog({ open, onClose, ui, locale }: { open: bool
       role="presentation"
     >
       <div role="dialog" aria-modal="true" aria-label={ui.searchDocs} className="w-full max-w-xl overflow-hidden rounded-xl border border-line bg-bg text-fg shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-line px-4">
+        <div className="flex items-center gap-3 border-b border-line px-4 focus-within:border-brand focus-within:shadow-[inset_0_-1px_0_var(--brand)]">
           <SearchIcon className="text-muted" />
           <input
             ref={input}
@@ -126,7 +126,8 @@ export default function SearchDialog({ open, onClose, ui, locale }: { open: bool
               } else if (e.key === 'Enter') go(hits[active])
             }}
             placeholder={ui.searchPlaceholder}
-            className="no-ring h-14 flex-1 bg-transparent text-base text-fg outline-none placeholder:text-muted"
+            // unslop-anything-ignore focus-removed
+            className="no-ring h-14 flex-1 bg-transparent text-base text-fg placeholder:text-muted focus:outline-none"
             aria-label={ui.searchQuery}
           />
           <kbd className="rounded border border-line px-1.5 font-mono text-[11px] text-muted">Esc</kbd>

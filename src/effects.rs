@@ -21,6 +21,10 @@ pub struct EffectsConfig {
     pub http: bool,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub smtp: bool,
+    /// Mail is recorded as decoded headers and MIME parts. Configs saved before it existed leave
+    /// it out and keep recording the raw DATA, so their cases still replay.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub smtp_parts: bool,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub env: BTreeMap<String, String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -47,12 +51,17 @@ impl EffectsConfig {
         db_dump: Option<&str>,
     ) -> Result<Option<Self>> {
         let mut config = EffectsConfig::default();
+        let mut raw = false;
         for kind in kinds.iter().flat_map(|k| k.split(',')).map(str::trim) {
             match kind {
                 "http" => config.http = true,
                 "smtp" => config.smtp = true,
+                "smtp-raw" => {
+                    config.smtp = true;
+                    raw = true;
+                }
                 "" => {}
-                other => bail!("unknown effect `{other}`: use http or smtp"),
+                other => bail!("unknown effect `{other}`: use http, smtp or smtp-raw"),
             }
         }
         for pair in env {
@@ -72,6 +81,7 @@ impl EffectsConfig {
             }
             config.env.insert(var.to_string(), kind.to_string());
         }
+        config.smtp_parts = config.smtp && !raw;
         config.db_reset = db_reset.map(str::to_string);
         config.db_dump = db_dump.map(str::to_string);
         Ok((!config.is_empty() || config.db_reset.is_some()).then_some(config))
@@ -107,9 +117,14 @@ impl Sinks {
             .http
             .then(|| listen(&events, &active, serve_http))
             .transpose()?;
+        let smtp_handler: Handler = if config.smtp_parts {
+            serve_smtp
+        } else {
+            serve_smtp_raw
+        };
         let smtp = config
             .smtp
-            .then(|| listen(&events, &active, serve_smtp))
+            .then(|| listen(&events, &active, smtp_handler))
             .transpose()?;
         Ok(Sinks {
             config: config.clone(),
@@ -576,6 +591,14 @@ fn serve_http(mut stream: TcpStream, events: &Mutex<Vec<String>>) {
 }
 
 fn serve_smtp(stream: TcpStream, events: &Mutex<Vec<String>>) {
+    serve_smtp_mode(stream, events, false);
+}
+
+fn serve_smtp_raw(stream: TcpStream, events: &Mutex<Vec<String>>) {
+    serve_smtp_mode(stream, events, true);
+}
+
+fn serve_smtp_mode(stream: TcpStream, events: &Mutex<Vec<String>>, raw: bool) {
     let Ok(mut out) = stream.try_clone() else {
         return;
     };
@@ -623,9 +646,14 @@ fn serve_smtp(stream: TcpStream, events: &Mutex<Vec<String>>) {
                 );
                 data.push('\n');
             }
+            let body = if raw {
+                data
+            } else {
+                crate::mime::format_email(&data)
+            };
             push(
                 events,
-                format!("smtp from {from} to {}\n{data}", to.join(", ")),
+                format!("smtp from {from} to {}\n{body}", to.join(", ")),
             );
             from.clear();
             to.clear();
@@ -905,9 +933,55 @@ mod tests {
         assert_eq!(
             text,
             "http POST http://hooks.example/new\ncontent-type: application/json\n\n{\"a\":1}\n\
-             smtp from <a@x.test> to <b@y.test>\nSubject: hi\n\n.dot\n"
+             smtp from <a@x.test> to <b@y.test>\nSubject: hi\npart text/plain\n.dot\n"
         );
         assert!(sinks.take(Path::new("."), Path::new(".")).is_empty());
+    }
+
+    #[test]
+    fn smtp_raw_records_unparsed_mime_data() {
+        let config = EffectsConfig::from_args(&["smtp-raw".into()], &[], None, None)
+            .unwrap()
+            .unwrap();
+        assert!(config.smtp && !config.smtp_parts);
+        let sinks = Sinks::start(&config).unwrap();
+        let env: BTreeMap<String, String> = sinks.env().into_iter().collect();
+        let smtp: u16 = env["SMTP_PORT"].parse().unwrap();
+        let mut mail = TcpStream::connect(("127.0.0.1", smtp)).unwrap();
+        mail.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        mail.write_all(
+            b"EHLO me\r\nMAIL FROM:<a@x.test>\r\nRCPT TO:<b@y.test>\r\nDATA\r\nX-Custom: keep\r\nSubject: hi\r\n\r\n..dot\r\n.\r\nQUIT\r\n",
+        )
+        .unwrap();
+        let mut out = String::new();
+        let _ = mail.read_to_string(&mut out);
+        assert!(out.contains("221"), "{out}");
+        let text = String::from_utf8(sinks.take(Path::new("."), Path::new("."))).unwrap();
+        assert_eq!(
+            text,
+            "smtp from <a@x.test> to <b@y.test>\nX-Custom: keep\nSubject: hi\n\n.dot\n"
+        );
+    }
+
+    #[test]
+    fn a_config_saved_before_smtp_parts_keeps_recording_raw_mail() {
+        let old: EffectsConfig = serde_json::from_str(r#"{"smtp":true}"#).unwrap();
+        assert!(old.smtp && !old.smtp_parts);
+        let parts = EffectsConfig::from_args(&["smtp".into()], &[], None, None)
+            .unwrap()
+            .unwrap();
+        assert!(parts.smtp_parts);
+        let saved: EffectsConfig =
+            serde_json::from_str(&serde_json::to_string(&parts).unwrap()).unwrap();
+        assert_eq!(saved, parts);
+        let env_only = EffectsConfig::from_args(&[], &["MAIL=smtp-url".into()], None, None)
+            .unwrap()
+            .unwrap();
+        assert!(env_only.smtp_parts);
+        let raw = EffectsConfig::from_args(&["smtp,smtp-raw".into()], &[], None, None)
+            .unwrap()
+            .unwrap();
+        assert!(raw.smtp && !raw.smtp_parts);
     }
 
     #[test]
