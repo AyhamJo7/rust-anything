@@ -1662,6 +1662,9 @@ fn report(
                     "Hot, but {:.0}% of its time waits on child processes. {CHILD_ADVICE}",
                     child_pct.unwrap_or_default()
                 ),
+                _ if is_top_level(&name, line) => {
+                    "The file's top level: nothing calls it and there is nothing to port. See the functions it calls.".into()
+                }
                 (Some((_, true)), Some(_)) if js_only.is_some() => format!(
                     "Hot, but `bridge` keeps `{name}` in {}: {}.",
                     lang.name(),
@@ -1743,9 +1746,13 @@ fn report(
 /// the program when the call names it literally. A call in a callback counts for the function
 /// around it, as the wait does. `None` when there is no such call, or several that start
 /// different programs.
+/// A file's top level: Python's `<module>`, Node's module function on line 1.
+fn is_top_level(name: &str, line: u32) -> bool {
+    name == "<module>" || (line == 1 && name.starts_with("(anonymous)"))
+}
+
 fn spawn_site(calls: &[SpawnCall], name: &str, line: u32) -> Option<(u32, Option<String>)> {
-    // A file's top level: Python's `<module>`, Node's module function on line 1.
-    let top = name == "<module>" || (line == 1 && name.starts_with("(anonymous)"));
+    let top = is_top_level(name, line);
     let own: Vec<&SpawnCall> = calls
         .iter()
         .filter(|c| {
@@ -2138,7 +2145,12 @@ pub fn markdown(r: &Report) -> String {
     }
     out.push_str("\n## What to port\n\n");
     let mut seen = BTreeMap::new();
-    for h in r.hot.iter().take(SHOWN).filter(|h| h.unit.is_some()) {
+    for h in r
+        .hot
+        .iter()
+        .take(SHOWN)
+        .filter(|h| h.unit.is_some() && !is_top_level(&h.name, h.line))
+    {
         if seen.insert(h.name.clone(), ()).is_some() {
             continue;
         }
@@ -3065,6 +3077,69 @@ mod tests {
         assert_eq!(json["hot"].as_array().unwrap().len(), 25);
         assert!(!markdown(&r).contains("`parse`"));
         assert_eq!(crate::go::pick(&r, None).unwrap().function, "parse");
+    }
+
+    #[test]
+    fn a_script_top_level_is_not_offered_for_porting() {
+        let root = std::env::temp_dir().join(format!("rust-anything-top-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("pyproject.toml"), "[project]\nname = \"lev\"\n").unwrap();
+        std::fs::write(
+            root.join("lib.py"),
+            "def lev(a, b):\n    return abs(len(a) - len(b))\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("app.py"),
+            "from lib import lev\n\nfor _ in range(3000):\n    lev(\"kitten\", \"sitting\")\n",
+        )
+        .unwrap();
+        let functions: HashMap<Key, Acc> = [
+            (
+                ("app.py".to_string(), "<module>".to_string(), 1),
+                Acc {
+                    self_ms: 1.0,
+                    total_ms: 118.0,
+                    calls: Some(1),
+                    ..Default::default()
+                },
+            ),
+            (
+                ("lib.py".to_string(), "lev".to_string(), 1),
+                Acc {
+                    self_ms: 76.0,
+                    total_ms: 116.0,
+                    calls: Some(3000),
+                    ..Default::default()
+                },
+            ),
+        ]
+        .into_iter()
+        .collect();
+        let r = report(
+            &root,
+            Lang::Python,
+            &["python3".into()],
+            functions,
+            0.0,
+            274.0,
+        );
+        std::fs::remove_dir_all(&root).unwrap();
+        let top = r
+            .hot
+            .iter()
+            .find(|h| h.name == "<module>")
+            .expect("the top level is still measured");
+        assert!(
+            !top.advice.contains("port the exported function"),
+            "advice for a top level: {}",
+            top.advice
+        );
+        let to_port = markdown(&r);
+        let to_port = to_port.split("## What to port").nth(1).expect("section");
+        assert!(!to_port.contains("`<module>`"), "{to_port}");
+        assert!(to_port.contains("`lev`"), "{to_port}");
     }
 
     #[test]
