@@ -230,6 +230,9 @@ export const en = {
     prettierDesc: 'Prettier and its Rust port format the same 59 real files, one process per file: Prettier takes 3.63 s, the Rust port 0.20 s, with the same output byte for byte.',
     prettierAlt: 'Prettier and its Rust port format the same 59 files; the Rust port is 19x faster with identical output.',
     sponsorWallAlt: 'The people who sponsor rust-anything on GitHub',
+    contributorsTitle: 'Built by {n} contributors',
+    contributorsDesc: 'Ports, parser fixes, translations and bug reports from people who use it. A good first issue is the easiest way in.',
+    contributorsAll: 'Show all {n} contributors',
     sponsorsTitle: 'Sponsors',
     sponsorsDesc:
       'rust-anything is free and open source. If it helps your work, please consider sponsoring it. Your support keeps development going.',

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- `profile` and `go` on a Node that refuses `--cpu-prof` in `NODE_OPTIONS` (22.14) pass it to a `node`
+  command as arguments, and stop with a clear message for wrappers such as `npx` (#346).
+- `profile` leaves a script's top level (Python's `<module>`, Node's line-1 module function) out of
+  "What to port" and no longer advises porting it with a function it calls in a loop (#344).
+- `app record --effects smtp` records each email as its decoded `From`, `To`, `Cc` and `Subject`
+  and its MIME parts (attachments as name, type, size and SHA-256), so the same mail sent with
+  different MIME framing matches. `--effects smtp-raw` keeps the raw DATA, and cases recorded
+  before this keep replaying against the raw form until recorded again (#333).
 - Go ports map matching error messages back to the package's exported sentinel errors, so callers using `errors.Is` keep working (#365).
 - `record --ignore-key-order` saves the choice with the crate, so `gate`, `enable`, `report` and
   `go` compare objects regardless of key order too; `--no-ignore-key-order` undoes it (#352).
