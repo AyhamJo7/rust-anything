@@ -465,7 +465,7 @@ fn runtime_fix(r: &Runtime, status: Status, platform: Platform) -> Option<String
 }
 
 /// The program's banner (stdout, else stderr), or `None` when it did not run.
-pub(crate) fn probe(program: &str, args: &[&str]) -> Option<String> {
+fn probe(program: &str, args: &[&str]) -> Option<String> {
     let out =
         crate::process::output(Command::new(program).args(args), crate::process::QUICK).ok()?;
     if !out.success() {

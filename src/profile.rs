@@ -449,17 +449,29 @@ fn is_node(program: &str) -> bool {
     Path::new(program).file_stem().is_some_and(|s| s == "node")
 }
 
+/// Asks `program` for its version and whether it allows `--cpu-prof` in `NODE_OPTIONS`. It runs
+/// in the workload's directory, where a relative path or a version manager's shim finds the node
+/// the workload gets, and without `NODE_OPTIONS`, so a preload named there runs once, in the
+/// workload.
+fn cpu_prof_probe(program: &str, root: &Path) -> Command {
+    let mut cmd = Command::new(program);
+    cmd.args([
+        "-p",
+        "process.version + ' ' + process.allowedNodeEnvironmentFlags.has('--cpu-prof')",
+    ])
+    .current_dir(root)
+    .env_remove("NODE_OPTIONS");
+    cmd
+}
+
 /// The version of a node that refuses `--cpu-prof` in `NODE_OPTIONS` (22.14 does; 22.23 and 26
 /// do not), asked of the node itself. `None` when it accepts the flag or could not be asked.
-fn node_refusing_cpu_prof_option(program: &str) -> Option<String> {
-    let answer = crate::doctor::probe(
-        program,
-        &[
-            "-p",
-            "process.version + ' ' + process.allowedNodeEnvironmentFlags.has('--cpu-prof')",
-        ],
-    )?;
-    let (version, allowed) = answer.split_once(' ')?;
+fn node_refusing_cpu_prof_option(program: &str, root: &Path) -> Option<String> {
+    let out = crate::process::output(&mut cpu_prof_probe(program, root), crate::process::QUICK)
+        .ok()
+        .filter(|out| out.success())?;
+    let answer = out.stdout_text();
+    let (version, allowed) = answer.lines().next()?.trim().split_once(' ')?;
     (allowed == "false").then(|| version.to_string())
 }
 
@@ -510,7 +522,7 @@ fn node(root: &Path, command: &[String], work: &Path) -> Result<Waited> {
     } else {
         "node"
     };
-    let refused = node_refusing_cpu_prof_option(probed);
+    let refused = node_refusing_cpu_prof_option(probed, root);
     let inherited = std::env::var("NODE_OPTIONS").unwrap_or_default();
     let launch = node_launch(command, refused.as_deref(), &dir, &inherited)?;
     let mut run = Command::new(&command[0]);
@@ -3192,6 +3204,22 @@ mod tests {
         assert_eq!(
             launch.node_options.as_deref(),
             Some("--max-old-space-size=4096 --cpu-prof --cpu-prof-dir=\"/tmp/prof dir\"")
+        );
+    }
+
+    #[test]
+    fn the_node_is_asked_where_the_workload_runs_and_without_node_options() {
+        // In the workload's directory a relative `./bin/node`, or a version manager's shim, is
+        // the node the workload gets. A `--require` in NODE_OPTIONS must run once, in the workload.
+        let root = Path::new("/repo");
+        let probe = cpu_prof_probe("./bin/node", root);
+        assert_eq!(probe.get_program(), "./bin/node");
+        assert_eq!(probe.get_current_dir(), Some(root));
+        assert!(
+            probe
+                .get_envs()
+                .any(|(key, value)| key == "NODE_OPTIONS" && value.is_none()),
+            "{probe:?}"
         );
     }
 
