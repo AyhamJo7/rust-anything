@@ -1704,7 +1704,7 @@ fn report(
                             "Mostly called by `{}` ({}:{}{calls}): port `{}` together with `{name}`, so one call into Rust does the whole loop.",
                             c.name, c.file, c.line, c.name
                         ),
-                        None => port_it(&u),
+                        None => port_it(u),
                     }
                 }
                 (Some((u, true)), Some(_)) => port_it(u),
