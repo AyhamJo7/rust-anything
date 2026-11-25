@@ -648,12 +648,14 @@ fn type_param_name(tp: &str) -> &str {
 }
 
 /// The type parameters `file`'s exports declare, read as `ts_functions` reads them but before
-/// `substitute_constraints` resolves a data-constrained one (`T extends string`) away.
+/// `substitute_constraints` resolves a data-constrained one (`T extends string`) away, plus those
+/// of bodyless overload signatures, which `exported_functions` skips.
 fn declared_type_params(root: &Path, file: &str, text: &str) -> Vec<String> {
     let mut functions = exported_functions(file, text);
     crate::ts::jsdoc::apply_declarations(root, file, &mut functions);
     functions
         .iter()
+        .chain(&crate::ts::exports::declared_functions(file, text))
         .flat_map(|f| {
             f.type_params
                 .iter()
@@ -2040,6 +2042,18 @@ mod tests {
         );
         assert!(!out.exists());
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn as_json_counts_type_parameters_declared_on_overload_signatures() {
+        let root = std::env::temp_dir();
+        let names = declared_type_params(
+            &root,
+            "src/id.ts",
+            "export function identity<T>(x: T): T;\n\
+             export function identity(x: unknown): unknown { return x; }\n",
+        );
+        assert_eq!(names, vec!["T".to_string()]);
     }
 
     #[test]
