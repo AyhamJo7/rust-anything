@@ -789,12 +789,17 @@ pub fn bench(opts: &BenchOptions) -> Result<Vec<BenchRow>> {
     let outcome = settle(&diff, diff_exact(&diff)?)?;
     let counts = counts_from_cases_text(&cases, &outcome)?;
     for row in &mut rows {
-        row.failing = outcome.missing.contains(&row.name)
-            || counts
-                .get(&row.name)
-                .is_some_and(|&(passed, total)| passed < total);
+        row.failing = failing(&row.name, &outcome, &counts);
     }
     Ok(rows)
+}
+
+fn failing(row: &str, outcome: &DiffOutcome, counts: &BTreeMap<String, (usize, usize)>) -> bool {
+    let name = row.strip_prefix("class ").unwrap_or(row);
+    outcome.missing.iter().any(|m| m == name)
+        || counts
+            .get(name)
+            .is_some_and(|&(passed, total)| passed < total)
 }
 
 fn time_functions(opts: &BenchOptions) -> Result<Vec<BenchRow>> {
@@ -2391,6 +2396,18 @@ writeFileSync(outPath, JSON.stringify(summary, null, 2))
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_class_bench_row_is_failing_when_its_cases_do_not_match() {
+        let outcome = DiffOutcome {
+            missing: vec!["Gone".into()],
+            ..Default::default()
+        };
+        let counts = BTreeMap::from([("Counter".to_string(), (1, 2)), ("add".to_string(), (2, 2))]);
+        assert!(super::failing("class Counter", &outcome, &counts));
+        assert!(super::failing("class Gone", &outcome, &counts));
+        assert!(!super::failing("add", &outcome, &counts));
+    }
+
     use super::*;
     use crate::ts::exports::{ExportedFn, Param};
 
