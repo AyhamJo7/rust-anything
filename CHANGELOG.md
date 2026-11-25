@@ -5,6 +5,16 @@
 - `bench`, `report` and the MCP `bench` tool leave functions whose recorded cases do not all match
   out of the overall speedup and the advice, and name them: a port that still panics was timed at
   the cost of catching the panic, which pulled the verdict down (#341, #470 by @AyhamJo7).
+- `app record` keeps the saved effects a run does not name: `--effects` replaces the kinds,
+  `--effect-env` adds or replaces one variable, and `--db-reset`/`--db-dump` replace only
+  themselves, so re-recording with one flag no longer drops the HTTP sink and its variables
+  (#331, #468 by @XiaoBinGan).
+- Java bridges ordered sets (`SortedSet`, `NavigableSet`, `TreeSet`, `LinkedHashSet`) as arrays
+  across the reflection converter and binary wire, and refuses unordered `Set` and `HashSet` with
+  "an unordered collection" instead of treating them as project classes (#366, #449 by @Lewandox).
+- `docs/types.md` lists, for each language, what each source type becomes in `port.rs` and the
+  reason a type keeps a function in its language; a test checks every row against the code
+  (#373, #456 by @puretechteam).
 
 ## 4.1.0 (2026-11-24)
 
