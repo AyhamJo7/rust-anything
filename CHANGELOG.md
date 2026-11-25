@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `bench`, `report` and the MCP `bench` tool leave functions whose recorded cases do not all match
+  out of the overall speedup and the advice, and name them: a port that still panics was timed at
+  the cost of catching the panic, which pulled the verdict down (#341, #470 by @AyhamJo7).
+
 ## 4.1.0 (2026-11-24)
 
 - `enable --only <fn>` (repeatable) switches on just the named functions of a unit, and `--partial`
