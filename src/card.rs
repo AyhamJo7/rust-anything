@@ -245,6 +245,11 @@ pub fn markdown(card: &Card) -> String {
             "| Function | Cases | Original per call | Rust per call | Speedup |\n| --- | ---: | ---: | ---: | ---: |\n",
         );
         for r in &card.bench {
+            let speed = if r.failing {
+                "left out: cases do not match".to_string()
+            } else {
+                table_speed(r.speedup)
+            };
             let _ = writeln!(
                 out,
                 "| `{}` | {} | {} | {} | {} |",
@@ -252,7 +257,7 @@ pub fn markdown(card: &Card) -> String {
                 r.cases,
                 ns(r.original_ns),
                 ns(r.rust_ns),
-                table_speed(r.speedup)
+                speed
             );
         }
         out.push('\n');
@@ -281,8 +286,8 @@ pub fn svg(card: &Card) -> String {
     const H: u32 = 600;
     let font = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
     let mono = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-    let (orig, rust) = card
-        .bench
+    let timed: Vec<&BenchRow> = card.bench.iter().filter(|b| !b.failing).collect();
+    let (orig, rust) = timed
         .iter()
         .fold((0.0, 0.0), |(o, r), b| (o + b.original_ns, r + b.rust_ns));
     let max = orig.max(rust).max(1.0);
@@ -299,8 +304,10 @@ pub fn svg(card: &Card) -> String {
             card.matched, card.cases
         )
     };
-    let per_call = if card.bench.len() == 1 {
+    let per_call = if timed.len() == 1 {
         "per call"
+    } else if timed.len() < card.bench.len() {
+        "per call, matching functions"
     } else {
         "per call, all functions"
     };
@@ -397,6 +404,7 @@ mod tests {
                 original_ns: 9_120_000.0,
                 rust_ns: 290_000.0,
                 speedup: 31.4,
+                failing: false,
             }],
             fallback_cases: 0,
             enabled: Some(true),
