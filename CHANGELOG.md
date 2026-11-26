@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `gate`'s literals check no longer counts recorded error text. A port has to reproduce the
+  original's error messages, and the runtime often writes them (`ZeroDivisionError: division by zero`),
+  so they were wrongly flagged as copied answers and failed the demo gate on macOS.
+
 ## 5.0.1 (2026-11-26)
 
 - rust-anything is now dual licensed under MIT OR Apache-2.0, the usual license for Rust projects. You
