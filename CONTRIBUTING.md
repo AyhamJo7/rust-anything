@@ -60,6 +60,10 @@ paths in what you commit. CI runs it on every file.
   - `tests/analyze.rs`: language detection, units, risks, dependencies, `--whole-app`.
   - `tests/loop.rs`: bridge, record, diff and shadow per language, with stand-ins instead of builds.
   - `tests/native.rs`: bridges built for real, then loaded and replayed.
+  - `tests/end_state.rs`: `bridge --end-state` kept in the manifest, and no end state without the
+    flag.
+  - `tests/state_through_calls.rs`: a function that reaches app state through another stays in the
+    original, while the pure rest is bridged.
   - `tests/app.rs` and `tests/http.rs`: whole-app record, replay, front door and lift, for CLIs and
     servers.
   - `tests/app_fresh.rs`: `app record --fresh`, where each case starts from a snapshot of a project
