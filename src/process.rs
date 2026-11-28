@@ -609,6 +609,11 @@ mod tests {
         assert!(differing.is_empty(), "the sandbox changed: {differing:?}");
         // Nothing is inherited when the environment is cleared: only what the command sets.
         assert_eq!(cleared.keys().collect::<Vec<_>>(), ["FOO"]);
+        // The value the command set is the value it sees (the message does not print it).
+        assert!(
+            cleared.get("FOO").is_some_and(|value| value == "1"),
+            "FOO was not kept as the command set it"
+        );
     }
 
     #[test]
