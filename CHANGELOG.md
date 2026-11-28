@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `map` marks a port that was never recorded as `not recorded` (and `recorded: false` in
+  `--json`), where it said its original had not changed since recording (#878, #899 by
+  @OnurrUgur).
 - `record --inputs` on Python and Ruby refuses a `"kwargs"` that is not an object of argument
   names to values, naming the line, and reads `"kwargs": null` as none (#877, #898 by
   @OnurrUgur).
