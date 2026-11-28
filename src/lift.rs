@@ -488,6 +488,17 @@ fn lift_app(
     } else {
         lifted_units_rs(state)
     };
+    let names: Vec<String> = state
+        .units
+        .iter()
+        .map(|unit| front_door::ident(&unit.name))
+        .collect();
+    let unit_names: Vec<&str> = names.iter().map(String::as_str).collect();
+    let routing = front_door::keep_helper_modules(
+        &std::fs::read_to_string(&units).unwrap_or_default(),
+        &routing,
+        &unit_names,
+    );
     std::fs::write(&units, routing)?;
     front_door::rustfmt(&units);
     std::fs::write(

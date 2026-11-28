@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `app wire` and `app lift` keep the helper modules of `rust/app/src/units/mod.rs`: a
+  `mod name;` line (with the attributes above it) that is not one of the units' glue modules
+  used to be deleted when the file was rewritten, so glue that used a helper stopped compiling
+  (#895).
 - `record --sandbox` and `app record --sandbox` (MCP `record` and `app_record`: `sandbox`) run
   the original with no network, its repository read-only and CPU and memory limits:
   bubblewrap on Linux (`--unshare-net`, the file system read-only apart from the run's scratch
