@@ -1707,13 +1707,14 @@ fn run() -> Result<ExitCode> {
                 say!("{}", serde_json::to_string_pretty(&outcome)?);
             } else {
                 say!(
-                    "{} {} {}@{} in {}:",
+                    "{} {} file{} for {}@{} in {}:",
                     if outcome.dry_run {
                         "Would write"
                     } else {
                         "Wrote"
                     },
                     outcome.files.len(),
+                    if outcome.files.len() == 1 { "" } else { "s" },
                     outcome.name,
                     outcome.version,
                     outcome.out.display()

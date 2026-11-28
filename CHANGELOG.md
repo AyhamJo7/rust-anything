@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `package --dry-run` says what it counts: "Would write 12 files for add-rs@1.0.0", and "1 file"
+  for one (#841, #913 by @aaas72).
 - `diff --profile android` on a crate that is not Java or Kotlin says `--profile android needs a
   JVM crate`, not that on-device recording does (#849, #894 by @SPD-RYUK).
 - `record`'s coverage line says "1 more file" instead of "1 more files" (#886, #919 by
