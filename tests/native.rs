@@ -258,7 +258,7 @@ fn pyo3_path_bridge_takes_and_returns_pathlib_paths() {
             ),
             (
                 "pathkit/__init__.py",
-                "from pathlib import Path\n\n\n\
+                "from __future__ import annotations\n\nfrom pathlib import Path\n\n\n\
                  def stem_of(file: Path) -> str:\n\
                  \x20   return file.stem\n\n\n\
                  def same(file: Path) -> Path:\n\
