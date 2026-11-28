@@ -5,6 +5,11 @@
 - `analyze` also flags TS/JS unary `~` and bitwise assignment operators (`&=`, `|=`, `^=`, `<<=`,
   `>>=`, `>>>=`) as `Number semantics`, alongside the binary bitwise operators: all of them
   truncate `f64` numbers to 32-bit integers (#789 by @brixtonpham).
+- `analyze` no longer lists a Python project's own modules as PyPI dependencies when a script
+  imports them from its own folder (`import _kit` next to `_kit.py`) or from a folder it puts on
+  `sys.path` itself. They were reported as packages of unknown fit (`-kit`), each with a "which
+  crate replaces it" decision, and the unit that uses them was not ordered after the unit that
+  holds them (#803, #804 by @AyhamJo7).
 
 ## 5.0.2 (2026-11-28)
 
