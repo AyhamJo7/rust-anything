@@ -1391,6 +1391,21 @@ pub fn to_ts_type(hint: &str) -> String {
         "float" => "number".into(),
         "bool" => "boolean".into(),
         "bytes" | "bytearray" | "memoryview" => "pybytes".into(),
+        // A path object, not a string: code calls `.stem` and `.is_dir()` on it.
+        "Path"
+        | "PurePath"
+        | "PosixPath"
+        | "PurePosixPath"
+        | "WindowsPath"
+        | "PureWindowsPath"
+        | "PathLike"
+        | "pathlib.Path"
+        | "pathlib.PurePath"
+        | "pathlib.PosixPath"
+        | "pathlib.PurePosixPath"
+        | "pathlib.WindowsPath"
+        | "pathlib.PureWindowsPath"
+        | "os.PathLike" => "pypath".into(),
         "None" | "NoneType" => "undefined".into(),
         "list" | "List" | "Sequence" | "Iterable" | "MutableSequence" | "Collection" => {
             format!("{}[]", wrap(&arg(0)))
@@ -1670,5 +1685,20 @@ mod tests {
         assert_eq!(to_ts_type("Optional[bytes]"), "pybytes | undefined");
         assert_eq!(to_ts_type("list[bytes]"), "pybytes[]");
         assert_eq!(to_ts_type("bytes | None"), "pybytes | undefined");
+        for path in [
+            "Path",
+            "pathlib.Path",
+            "PurePath",
+            "PosixPath",
+            "os.PathLike",
+        ] {
+            assert_eq!(to_ts_type(path), "pypath", "{path}");
+        }
+        assert_eq!(to_ts_type("os.PathLike[str]"), "pypath");
+        assert_eq!(to_ts_type("Path | None"), "pypath | undefined");
+        assert_eq!(to_ts_type("Optional[Path]"), "pypath | undefined");
+        assert_eq!(to_ts_type("list[Path]"), "pypath[]");
+        // A project's own class that only ends in `Path` is still a named class.
+        assert_eq!(to_ts_type("DataPath"), "DataPath");
     }
 }

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Python: `pathlib.Path` (and `PurePath`, `os.PathLike`) is a bridged type. A `Path` parameter is
+  `std::path::PathBuf` in `port.rs`, `record` calls the original with real path objects, and a
+  returned path is recorded by its text. Before, the parameter was `serde_json::Value` and every
+  recorded case raised `AttributeError` on the dict, list or string it was given, and every
+  returned path was recorded as the same `{"$repr": "PosixPath"}` (#807).
 - `profile` on Java keeps the samples of every JVM the workload starts. Each one now writes its own
   recording (`profile-<pid>.jfr`) and `profile` reads them all, where they used to share one
   `profile.jfr` and the last JVM to exit replaced the others, so work done in a child JVM (a Gradle

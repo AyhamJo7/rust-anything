@@ -245,6 +245,142 @@ fn pyo3_bytes_bridge_accepts_bytes_bytearray_memoryview_and_returns_bytes() {
 }
 
 #[test]
+fn pyo3_path_bridge_takes_and_returns_pathlib_paths() {
+    let Some(python) = common::python() else {
+        return;
+    };
+    let root = project(
+        "pyo3-path",
+        &[
+            (
+                "pyproject.toml",
+                "[project]\nname = \"pathkit\"\nversion = \"0.1.0\"\n",
+            ),
+            (
+                "pathkit/__init__.py",
+                "from pathlib import Path\n\n\n\
+                 def stem_of(file: Path) -> str:\n\
+                 \x20   return file.stem\n\n\n\
+                 def same(file: Path) -> Path:\n\
+                 \x20   return file\n\n\n\
+                 def maybe(file: Path | None) -> Path | None:\n\
+                 \x20   return file\n",
+            ),
+        ],
+    );
+    let dir = root.join("port");
+    bridge::bridge(&bridge::Options {
+        root: &root,
+        unit: "pathkit/",
+        kind: Some(Kind::Pyo3),
+        out: Some(dir.clone()),
+        name: None,
+        force: false,
+        keep: Vec::new(),
+        lang: None,
+        batch: Vec::new(),
+        as_json: Vec::new(),
+        allocator: Default::default(),
+    })
+    .unwrap();
+
+    let port_path = dir.join("src/port.rs");
+    let mut port = std::fs::read_to_string(&port_path).unwrap();
+    for signature in [
+        "pub fn stem_of(file: std::path::PathBuf) -> Result<String, String>",
+        "pub fn same(file: std::path::PathBuf) -> Result<std::path::PathBuf, String>",
+        "pub fn maybe(file: Option<std::path::PathBuf>) -> Result<Option<std::path::PathBuf>, String>",
+    ] {
+        assert!(port.contains(signature), "{signature}\n{port}");
+    }
+
+    let recorded = harness::record(&RecordOptions {
+        crate_dir: &dir,
+        count: 20,
+        inputs: None,
+        module: None,
+        resolve_from: None,
+        node_args: &[],
+    })
+    .unwrap();
+    assert!(recorded.cases > 0, "{recorded:?}");
+    // Every case calls the original with a real path, and a returned path keeps its text.
+    let cases = std::fs::read_to_string(dir.join("cases.jsonl")).unwrap();
+    assert!(!cases.contains("AttributeError"), "{cases}");
+    assert!(!cases.contains("$repr"), "{cases}");
+    assert!(
+        cases.contains(
+            r#"{"fn": "same", "args": [{"$path": "src/main.py"}], "ok": {"$path": "src/main.py"}}"#
+        ),
+        "{cases}"
+    );
+    assert!(
+        cases.contains(
+            r#"{"fn": "stem_of", "args": [{"$path": "/tmp/report.tar.gz"}], "ok": "report.tar"}"#
+        ),
+        "{cases}"
+    );
+
+    for (name, body) in [
+        (
+            "stem_of",
+            "Ok(file.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default())",
+        ),
+        ("same", "Ok(file)"),
+        ("maybe", "Ok(file)"),
+    ] {
+        let start = port.find(&format!("pub fn {name}(")).unwrap();
+        let open = start + port[start..].find('{').unwrap();
+        let close = open + port[open..].find("\n}").unwrap();
+        port = format!("{}{{\n    {body}{}", &port[..open], &port[close..]);
+    }
+    std::fs::write(&port_path, port).unwrap();
+
+    harness::build(&dir).unwrap();
+    let outcome = harness::diff(&DiffOptions {
+        crate_dir: &dir,
+        module: None,
+        ignore_key_order: false,
+        node_args: &[],
+        float_tolerance: None,
+    })
+    .unwrap();
+    assert_eq!(
+        (outcome.failed, outcome.passed),
+        (0, outcome.total),
+        "{:#?}",
+        outcome.mismatches
+    );
+
+    let check = Command::new(python)
+        .env("PYTHONPATH", dir.join("python"))
+        .args([
+            "-c",
+            "import pathkit_rs as m\n\
+             from pathlib import Path, PurePosixPath\n\
+             out = m.same(Path('a') / 'b.txt')\n\
+             assert isinstance(out, Path) and out == Path('a/b.txt'), out\n\
+             assert m.stem_of(PurePosixPath('x/y.tar.gz')) == 'y.tar'\n\
+             assert m.maybe(None) is None\n\
+             try:\n\
+             \x20   m.stem_of('a.txt')\n\
+             except TypeError as error:\n\
+             \x20   assert 'str' in str(error), error\n\
+             else:\n\
+             \x20   raise AssertionError('a str is not a path')\n",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        check.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn pyo3_float_param_with_integer_default_builds_and_matches() {
     if common::python().is_none() {
         return;
