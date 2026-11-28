@@ -27,6 +27,10 @@
   with `file <name> (not written)`. `app lift` leaves such a case out of the generated
   `cargo test`, which compares written files by exact name, and says so in its checklist
   (#819, #820 by @AyhamJo7).
+- `bridge` on a Python function with an optional list parameter (`paths: Sequence[str] = ()`)
+  writes a PyO3 crate that compiles. The binding was a plain `Bound` with a `=None` default,
+  which PyO3 rejects (`E0308: expected Bound<'_, PyAny>, found Option<_>`); it is `Option<Bound>`
+  now, as for other optional objects (#821, #822 by @AyhamJo7).
 
 ## 5.0.2 (2026-11-28)
 

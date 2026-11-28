@@ -114,9 +114,10 @@ fn option_inner(ty: &str) -> Option<&str> {
 /// Whether the binding for a port parameter is `Option<Bound>`: an optional parameter whose
 /// default is `None` and whose value crosses as a Python object. PyO3 needs `Option<...>` to
 /// accept `None`; a plain `Bound` rejects it and the generated crate does not compile
-/// (`E0308: expected Bound<'_, PyAny>, found Option<_>`).
+/// (`E0308: expected Bound<'_, PyAny>, found Option<_>`). What decides is how the whole
+/// `Option<...>` crosses: `Vec<String>` is native on its own, `Option<Vec<String>>` is not.
 fn is_option_bound(ty: &str) -> bool {
-    option_inner(ty).is_some_and(|inner| wire(inner) == Wire::Json)
+    option_inner(ty).is_some() && wire(ty) == Wire::Json
 }
 
 fn binding_type(ty: &str) -> String {
@@ -1293,6 +1294,28 @@ mod tests {
         );
         assert_eq!(binding_type("Option<i64>").as_str(), "Option<i64>");
         assert_eq!(binding_type("String").as_str(), "String");
+        // A list is native on its own but crosses as an object once it is optional
+        // (`paths: Sequence[str] = ()`), so it needs `Option<Bound>` for its `=None` too.
+        for optional_list in [
+            "Option<Vec<String>>",
+            "Option<Vec<f64>>",
+            "Option<Vec<i64>>",
+        ] {
+            assert_eq!(binding_type(optional_list), "Option<Bound<'_, PyAny>>");
+        }
+        let tally = PortFn {
+            js_name: "tally".into(),
+            rust_name: "tally".into(),
+            params: vec![("paths".into(), "Option<Vec<String>>".into())],
+            ret: "i64".into(),
+            fallible: true,
+            is_async: false,
+        };
+        let converted = body(&tally, "port::tally", false);
+        assert!(
+            converted.contains("let paths: Option<Vec<String>> = match &paths {"),
+            "{converted}"
+        );
     }
 
     fn verdict_port() -> PortFn {
