@@ -353,7 +353,51 @@ pub fn parse_port(source: &str) -> PortApi {
             });
         }
     }
+    let own = api.structs.clone();
+    let functions = api.functions.iter_mut();
+    let in_classes = api.classes.iter_mut().flat_map(|class| {
+        let methods = class.methods.iter_mut().map(|(method, _)| method);
+        std::iter::once(&mut class.constructor).chain(methods)
+    });
+    for function in functions.chain(in_classes) {
+        function.ret = with_paths(&function.ret, &own);
+        for (_, ty) in &mut function.params {
+            *ty = with_paths(ty, &own);
+        }
+    }
     api
+}
+
+/// Type names a port may import instead of spelling out. The bindings repeat a port's types
+/// in files that have none of its `use` lines, so they need the path.
+const IMPORTABLE: [(&str, &str); 2] = [
+    ("Value", "serde_json::Value"),
+    ("HashMap", "std::collections::HashMap"),
+];
+
+/// `ty` with each bare [`IMPORTABLE`] name given its path. A name already behind a path
+/// (`serde_json::Value`) and a name the port defines itself (`own`) stay as written.
+fn with_paths(ty: &str, own: &[String]) -> String {
+    let mut out = String::new();
+    let mut word = String::new();
+    let flush = |out: &mut String, word: &mut String| {
+        let path = IMPORTABLE
+            .iter()
+            .find(|(name, _)| name == word)
+            .filter(|_| !out.ends_with("::") && !own.contains(word));
+        out.push_str(path.map_or(word.as_str(), |(_, path)| path));
+        word.clear();
+    };
+    for c in ty.chars() {
+        if c.is_alphanumeric() || c == '_' {
+            word.push(c);
+        } else {
+            flush(&mut out, &mut word);
+            out.push(c);
+        }
+    }
+    flush(&mut out, &mut word);
+    out
 }
 
 fn doc_name(before: &[&str], prefix: &str) -> Option<String> {
@@ -1454,6 +1498,36 @@ mod tests {
         assert!(null.contains("-> napi::Result<Option<String>>"), "{null}");
         assert!(!null.contains("Either"), "{null}");
         assert!(undefined.contains("Either<String, ()>"), "{undefined}");
+    }
+
+    #[test]
+    fn type_names_a_port_imports_are_read_with_their_paths() {
+        // The bindings repeat these types in another file, which has none of the port's
+        // `use` lines.
+        let api = parse_port(
+            "use std::collections::HashMap;\nuse serde_json::Value;\n\n\
+             /// Port of `merge`.\n\
+             pub fn merge(\n    base: Value,\n    extra: Option<HashMap<String, Value>>,\n    \
+             raw: serde_json::Value,\n) -> Result<Vec<Value>, String> {\n    todo!()\n}\n",
+        );
+        let merge = &api.functions[0];
+        let types: Vec<&str> = merge.params.iter().map(|(_, ty)| ty.as_str()).collect();
+        assert_eq!(
+            types,
+            [
+                "serde_json::Value",
+                "Option<std::collections::HashMap<String, serde_json::Value>>",
+                "serde_json::Value",
+            ]
+        );
+        assert_eq!(merge.ret, "Vec<serde_json::Value>");
+
+        // A type the port defines under one of those names is the port's own.
+        let own = parse_port(
+            "pub struct Value {\n    pub n: i64,\n}\n\n\
+             /// Port of `wrap`.\npub fn wrap(n: i64) -> Result<Value, String> {\n    todo!()\n}\n",
+        );
+        assert_eq!(own.functions[0].ret, "Value");
     }
 
     #[test]

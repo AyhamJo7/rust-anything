@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- A port may import `serde_json::Value` or `std::collections::HashMap` and use the short name
+  in its signatures. `refresh` (and every command that regenerates bindings) repeated the
+  short name in `src/lib.rs`, which has none of the port's `use` lines, so the crate stopped
+  compiling (`E0425: cannot find type Value in this scope`). Signatures are now read with the
+  full path, unless the port defines a type of that name itself (#823).
 - `profile` on Java keeps the samples of every JVM the workload starts. Each one now writes its own
   recording (`profile-<pid>.jfr`) and `profile` reads them all, where they used to share one
   `profile.jfr` and the last JVM to exit replaced the others, so work done in a child JVM (a Gradle
