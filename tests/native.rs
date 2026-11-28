@@ -304,13 +304,14 @@ fn pyo3_path_bridge_takes_and_returns_pathlib_paths() {
     })
     .unwrap();
     assert!(recorded.cases > 0, "{recorded:?}");
-    // Every case calls the original with a real path, and a returned path keeps its text.
+    // Every case calls the original with a real path, and a returned path keeps its text. The
+    // path checked has no separator: Windows records `src\main.py` for `src/main.py`.
     let cases = std::fs::read_to_string(dir.join("cases.jsonl")).unwrap();
     assert!(!cases.contains("AttributeError"), "{cases}");
     assert!(!cases.contains("$repr"), "{cases}");
     assert!(
         cases.contains(
-            r#"{"fn": "same", "args": [{"$path": "src/main.py"}], "ok": {"$path": "src/main.py"}}"#
+            r#"{"fn": "same", "args": [{"$path": "notes.txt"}], "ok": {"$path": "notes.txt"}}"#
         ),
         "{cases}"
     );
