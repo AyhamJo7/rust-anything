@@ -98,6 +98,41 @@ fn map_lists_ports_and_marks_upstream_changes() {
 }
 
 #[test]
+fn map_json_names_a_c_abi_port_the_way_bridge_and_the_manifest_do() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/mini");
+    let repo = std::env::temp_dir().join(format!("rust-anything-map-cabi-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&repo);
+    copy_dir(&fixture, &repo);
+    let unit = "packages/a/src/util.ts";
+    let crate_dir = repo.join("rust/util-rs");
+    bridge::bridge(&bridge::Options {
+        root: &repo,
+        unit,
+        kind: Some(bridge::Kind::CAbi),
+        out: Some(crate_dir.clone()),
+        name: None,
+        force: false,
+        keep: Vec::new(),
+        lang: None,
+        batch: Vec::new(),
+        as_json: Vec::new(),
+        allocator: Default::default(),
+    })
+    .unwrap();
+
+    let manifest = std::fs::read_to_string(crate_dir.join(bridge::MANIFEST)).unwrap();
+    assert!(manifest.contains("\"c-abi\""), "{manifest}");
+
+    let map = port_map::map(&repo, &[]).unwrap();
+    assert_eq!(map.ports.len(), 1, "{map:#?}");
+    // Not "cabi" (Kind::CAbi's Debug, lowercased): the same "c-abi" bridge --kind takes and the
+    // manifest writes.
+    assert_eq!(map.ports[0].kind, "c-abi");
+
+    std::fs::remove_dir_all(&repo).unwrap();
+}
+
+#[test]
 fn map_names_a_crate_folder_whose_manifest_does_not_parse() {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/mini");
     let repo = std::env::temp_dir().join(format!("rust-anything-map-bad-{}", std::process::id()));
@@ -253,5 +288,62 @@ fn one_unit_bridged_twice_counts_as_one_unit() {
         "{text}"
     );
     assert!(text.contains("| `src/math.ts` | `rust/mathn` |"), "{text}");
+    let _ = std::fs::remove_dir_all(&repo);
+}
+
+#[test]
+fn unrecorded_port_is_marked_not_recorded() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/mini");
+    let repo = std::env::temp_dir().join(format!(
+        "rust-anything-map-unrecorded-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&repo);
+    copy_dir(&fixture, &repo);
+    let unit = "packages/a/src/util.ts";
+    let crate_dir = repo.join("rust/util-rs");
+    bridge::bridge(&bridge::Options {
+        root: &repo,
+        unit,
+        kind: None,
+        out: Some(crate_dir.clone()),
+        name: None,
+        force: false,
+        keep: Vec::new(),
+        lang: None,
+        batch: Vec::new(),
+        as_json: Vec::new(),
+        allocator: Default::default(),
+    })
+    .unwrap();
+
+    let map = port_map::map(&repo, &[]).unwrap();
+    assert_eq!(map.ports.len(), 1);
+    assert!(!map.ports[0].recorded);
+    let json = serde_json::to_value(&map).unwrap();
+    assert_eq!(json["ports"][0]["recorded"], serde_json::json!(false));
+    let md = port_map::markdown(&map);
+    assert!(md.contains("| not recorded |"), "{md}");
+    assert!(!md.contains("| unchanged |"), "{md}");
+    assert!(
+        !md.contains("no original changed since it was recorded"),
+        "{md}"
+    );
+    assert!(md.contains("none recorded yet."), "{md}");
+
+    let m = Manifest::load(&crate_dir).unwrap();
+    recording::save_fingerprint(&crate_dir, &m, None).unwrap();
+    let map = port_map::map(&repo, &[]).unwrap();
+    assert!(map.ports[0].recorded);
+    let json = serde_json::to_value(&map).unwrap();
+    assert_eq!(json["ports"][0]["recorded"], serde_json::json!(true));
+    let md = port_map::markdown(&map);
+    assert!(md.contains("| unchanged |"), "{md}");
+    assert!(!md.contains("| not recorded |"), "{md}");
+    assert!(
+        md.contains("no original changed since it was recorded"),
+        "{md}"
+    );
+
     let _ = std::fs::remove_dir_all(&repo);
 }

@@ -860,7 +860,41 @@ pub fn gate(crate_dir: &Path, node_args: &[String]) -> Result<GateOutcome> {
     Ok(outcome)
 }
 
+/// The app a unit crate was lifted into, when `app lift` has made `rust/app` pure Rust.
+fn lifted_into(crate_dir: &Path) -> Option<String> {
+    let repo = crate_dir.parent()?.parent()?;
+    let state = crate::front_door::State::load(repo).ok()?;
+    let name = crate_dir.file_name()?.to_str()?;
+    (state.lifted && state.units.iter().any(|unit| unit.crate_name == name)).then_some(state.name)
+}
+
+/// What gate can say about a lifted unit: `lift` removed its bindings, so the Rust checks run,
+/// and the recorded cases are the whole app's to check (`app replay`).
+fn lifted_checks(crate_dir: &Path, app: &str) -> Result<GateOutcome> {
+    let mut checks = rust_checks(crate_dir, &crate::cache::target_for(crate_dir)?.dir);
+    checks.extend(lockfile_check(crate_dir));
+    checks.extend(advisories_check(crate_dir));
+    checks.push(ported_check(crate_dir));
+    checks.push(Check {
+        fix: None,
+        name: "lifted",
+        passed: true,
+        detail: format!(
+            "lifted into rust/app ({app}): its bindings are gone, so what it does is checked by \
+             `rust-anything app replay` on the app's recorded cases, not here"
+        ),
+    });
+    Ok(GateOutcome {
+        passed: checks.iter().all(|c| c.passed),
+        checks,
+        cases: None,
+    })
+}
+
 fn run(crate_dir: &Path, node_args: &[String]) -> Result<GateOutcome> {
+    if let Some(app) = lifted_into(crate_dir) {
+        return lifted_checks(crate_dir, &app);
+    }
     let manifest = Manifest::load(crate_dir)?;
     let lockfile = lockfile_check(crate_dir);
     let mut cases = None;
@@ -1163,7 +1197,7 @@ pub fn rust_checks(crate_dir: &Path, target_dir: &Path) -> Vec<Check> {
         name: "unsafe",
         passed: unexplained.is_empty(),
         detail: if unexplained.is_empty() {
-            format!("{explained} unsafe uses, each with a `// SAFETY:` comment")
+            unsafe_pass_detail(explained)
         } else {
             format!(
                 "unsafe without a `// SAFETY:` comment: {}",
@@ -1173,6 +1207,14 @@ pub fn rust_checks(crate_dir: &Path, target_dir: &Path) -> Vec<Check> {
     });
 
     checks
+}
+
+fn unsafe_pass_detail(explained: usize) -> String {
+    match explained {
+        0 => "no unsafe code".into(),
+        1 => "1 unsafe use, with a `// SAFETY:` comment".into(),
+        _ => format!("{explained} unsafe uses, each with a `// SAFETY:` comment"),
+    }
 }
 
 /// No function in `src/port.rs` is still `unimplemented!`.
@@ -1376,8 +1418,34 @@ fn strip_code(line: &str) -> String {
 mod tests {
     use super::{
         CASES, Check, GateOutcome, TESTS_BASELINE, behavior_detail, fix_for, known_diffs_added,
-        spawn_fix, stubs, unsafe_blocks,
+        lifted_into, spawn_fix, stubs, unsafe_blocks, unsafe_pass_detail,
     };
+
+    #[test]
+    fn a_unit_lifted_into_the_app_is_known_by_its_crate_name() {
+        let repo =
+            std::env::temp_dir().join(format!("rust-anything-lifted-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&repo);
+        std::fs::create_dir_all(repo.join("rust/app")).unwrap();
+        std::fs::create_dir_all(repo.join("rust/tool-rs")).unwrap();
+        let state = |lifted: bool| {
+            format!(
+                r#"{{"schema": "rust-anything/app@1", "name": "tool", "commands": ["go"], "lifted": {lifted},
+                    "units": [{{"name": "tool", "crate": "tool-rs", "path": "../tool-rs", "commands": ["go"], "switch": "RUST_ANYTHING_UNIT_TOOL"}}]}}"#
+            )
+        };
+        let unit = repo.join("rust/tool-rs");
+        // Not lifted: the unit is gated as before.
+        std::fs::write(repo.join("rust/app/rust-anything.json"), state(false)).unwrap();
+        assert_eq!(lifted_into(&unit), None);
+        // Lifted: its bindings are gone, and the app's replay checks its cases.
+        std::fs::write(repo.join("rust/app/rust-anything.json"), state(true)).unwrap();
+        assert_eq!(lifted_into(&unit).as_deref(), Some("tool"));
+        // A crate that is not one of the app's units is not.
+        std::fs::create_dir_all(repo.join("rust/other-rs")).unwrap();
+        assert_eq!(lifted_into(&repo.join("rust/other-rs")), None);
+        std::fs::remove_dir_all(&repo).unwrap();
+    }
 
     #[test]
     fn the_behavior_line_names_known_diffs_added_since_the_last_pass() {
@@ -1493,6 +1561,19 @@ mod tests {
         assert!(
             compile_fix.starts_with("fix the compile error above"),
             "{compile_fix}"
+        );
+    }
+
+    #[test]
+    fn unsafe_pass_detail_handles_zero_one_and_multiple_uses() {
+        assert_eq!(unsafe_pass_detail(0), "no unsafe code");
+        assert_eq!(
+            unsafe_pass_detail(1),
+            "1 unsafe use, with a `// SAFETY:` comment"
+        );
+        assert_eq!(
+            unsafe_pass_detail(2),
+            "2 unsafe uses, each with a `// SAFETY:` comment"
         );
     }
 

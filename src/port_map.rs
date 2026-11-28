@@ -34,6 +34,15 @@ fn is_zero(n: &usize) -> bool {
     *n == 0
 }
 
+/// `Kind`'s own serde name (`"c-abi"` for `Kind::CAbi`), matching the manifest and `bridge
+/// --kind`, rather than `Debug`'s `"cabi"`.
+fn kind_str(kind: crate::bridge::Kind) -> String {
+    serde_json::to_value(kind)
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_else(|| format!("{kind:?}").to_lowercase())
+}
+
 #[derive(Debug, Serialize)]
 pub struct Port {
     pub unit: String,
@@ -44,6 +53,7 @@ pub struct Port {
     pub in_rust: Vec<String>,
     pub kept_in_original: Vec<String>,
     pub cases: usize,
+    pub recorded: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_diff: Option<(usize, usize)>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -245,10 +255,11 @@ fn port(root: &Path, dir: &Path, m: &Manifest, log: &[crate::audit::Entry]) -> P
         last_change: crate::audit::last_switch(log, &logged_dir, &m.crate_name).cloned(),
         crate_dir,
         language: format!("{:?}", m.language).to_lowercase(),
-        kind: format!("{:?}", m.kind).to_lowercase(),
+        kind: kind_str(m.kind),
         in_rust,
         kept_in_original,
         cases,
+        recorded: dir.join(recording::RECORDED_FROM).is_file(),
         last_diff: recording::last_diff(dir),
         changed_upstream: recording::stale(dir, m),
     }
@@ -328,6 +339,7 @@ fn render(out: &mut String, map: &PortMap) -> std::fmt::Result {
     )?;
     match map.changed() {
         _ if map.ports.is_empty() => writeln!(out, ".\n")?,
+        0 if !map.ports.iter().any(|p| p.recorded) => writeln!(out, "; none recorded yet.\n")?,
         0 => writeln!(out, "; no original changed since it was recorded.\n")?,
         1 => writeln!(
             out,
@@ -371,7 +383,9 @@ fn render(out: &mut String, map: &PortMap) -> std::fmt::Result {
                 p.cases,
                 p.last_diff
                     .map_or("not run".into(), |(m, t)| format!("{m}/{t}")),
-                if p.changed_upstream.is_some() {
+                if !p.recorded {
+                    "not recorded".into()
+                } else if p.changed_upstream.is_some() {
                     format!("**changed**: `rust-anything record {}`", p.crate_dir)
                 } else {
                     "unchanged".into()

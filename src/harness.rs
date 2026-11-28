@@ -307,12 +307,37 @@ pub(crate) fn generate_cases_salted(
                     manifest.language.name()
                 );
             }
+            if !matches!(&case["kwargs"], Value::Null | Value::Object(_)) {
+                bail!(
+                    "{}:{}: \"kwargs\" must be an object of argument names to values",
+                    path.display(),
+                    i + 1
+                );
+            }
+            if matches!(case.get("kwargs"), Some(Value::Null))
+                && let Some(obj) = case.as_object_mut()
+            {
+                obj.remove("kwargs");
+            }
             case["module"] = Value::String(module_for(&f.file)?);
             cases.push(case);
         }
     }
 
     Ok((cases, traps, regex_functions))
+}
+
+/// `--module` names a JS module the original is imported from, so only a TS/JS crate can
+/// take it; any other language would hand the path to its own driver as an import name.
+fn check_module(module: Option<&Path>, manifest: &Manifest) -> Result<()> {
+    if module.is_some() {
+        anyhow::ensure!(
+            manifest.language == crate::lang::Lang::Ts,
+            "--module is for TS/JS crates, and this crate is {}",
+            manifest.language.name()
+        );
+    }
+    Ok(())
 }
 
 /// `--count 0` with no `--inputs` (or `--from-tests`) would record nothing and replace
@@ -363,7 +388,7 @@ fn line_holds(line: &str, value: &str) -> bool {
 
 /// The environment variables with a secret-looking name whose value appears in the recorded
 /// `cases`, each with the functions whose cases hold it. Only names come back, never values.
-fn recorded_secrets(
+pub(crate) fn recorded_secrets(
     cases: &str,
     environment: impl IntoIterator<Item = (String, String)>,
 ) -> Vec<(String, Vec<String>)> {
@@ -379,7 +404,12 @@ fn recorded_secrets(
         for line in cases.lines().filter(|line| line_holds(line, &value)) {
             let function = serde_json::from_str::<Value>(line)
                 .ok()
-                .and_then(|case| case["fn"].as_str().map(str::to_string))
+                .and_then(|case| {
+                    case["fn"]
+                        .as_str()
+                        .or_else(|| case["class"].as_str())
+                        .map(str::to_string)
+                })
                 .unwrap_or_else(|| "?".to_string());
             if !functions.contains(&function) {
                 functions.push(function);
@@ -391,6 +421,12 @@ fn recorded_secrets(
     }
     found.sort();
     found
+}
+
+/// Environment variables whose name and value are valid Unicode.
+pub(crate) fn unicode_env() -> impl Iterator<Item = (String, String)> {
+    std::env::vars_os()
+        .filter_map(|(name, value)| Some((name.into_string().ok()?, value.into_string().ok()?)))
 }
 
 /// Takes the recording away: removed, or, when the folder does not let it be removed, emptied.
@@ -409,9 +445,7 @@ fn refuse_recorded_secrets(cases_path: &Path) -> Result<()> {
     let Ok(cases) = std::fs::read_to_string(cases_path) else {
         return Ok(());
     };
-    let environment = std::env::vars_os()
-        .filter_map(|(name, value)| Some((name.into_string().ok()?, value.into_string().ok()?)));
-    let found = recorded_secrets(&cases, environment);
+    let found = recorded_secrets(&cases, unicode_env());
     if found.is_empty() {
         return Ok(());
     }
@@ -443,6 +477,7 @@ pub fn record(opts: &RecordOptions) -> Result<RecordOutcome> {
         ..*opts
     };
     let manifest = Manifest::load(opts.crate_dir)?;
+    check_module(opts.module, &manifest)?;
     let (cases, traps, regex_functions) = generate_cases(opts, &manifest)?;
 
     let timed_out_path = opts.crate_dir.join(WORK_DIR).join(TIMED_OUT);
@@ -499,6 +534,7 @@ pub fn record_android(opts: &RecordOptions, device: Option<&str>) -> Result<Reco
     );
     check_count(opts)?;
     let manifest = Manifest::load(opts.crate_dir)?;
+    check_module(opts.module, &manifest)?;
     let (cases, traps, regex_functions) = generate_cases(opts, &manifest)?;
     let _ = std::fs::remove_file(opts.crate_dir.join(WORK_DIR).join(TIMED_OUT));
     let out = crate::android_device::record(opts.crate_dir, &manifest, &cases, device)?;
@@ -961,12 +997,24 @@ pub fn verdict(rows: &[BenchRow], lang: crate::lang::Lang) -> Verdict {
         "Nothing to compare: record cases that do not throw first.".to_string()
     } else if slower.is_empty() && faster.len() == rows.len() {
         "Ship it: every function is faster in Rust, call included.".to_string()
+    } else if slower.is_empty() && rows.len() == 1 {
+        "Ship it: the function is not slower in Rust; it ties.".to_string()
     } else if slower.is_empty() {
         "Ship it: no function is slower in Rust; some only tie.".to_string()
-    } else if lang == crate::lang::Lang::C {
+    } else if lang == crate::lang::Lang::C && slower.len() == 1 {
         // C links the port directly: there is no crossing to blame.
         format!(
+            "No call overhead in C: {} is slower as Rust code. Profile and optimize it, or keep it in C.",
+            slower[0]
+        )
+    } else if lang == crate::lang::Lang::C {
+        format!(
             "No call overhead in C: these are slower as Rust code. Profile and optimize them, or keep them in C: {}.",
+            slower.join(", ")
+        )
+    } else if speedup >= 1.1 && slower.len() == 1 {
+        format!(
+            "Ship the faster functions. Keep the slower one in the original (`bridge --keep`) or move its callers to Rust too: {}.",
             slower.join(", ")
         )
     } else if speedup >= 1.1 {
@@ -1330,6 +1378,7 @@ pub fn diff_android(
     jni_libs: Option<&Path>,
 ) -> Result<DiffOutcome> {
     let manifest = Manifest::load(opts.crate_dir)?;
+    check_module(opts.module, &manifest)?;
     diff_after(
         opts,
         crate::android_device::diff(opts.crate_dir, &manifest, device, jni_libs)?,
@@ -1388,6 +1437,9 @@ pub(crate) fn diff_exact(opts: &DiffOptions) -> Result<DiffOutcome> {
         crate_dir: &crate_dir,
         ..*opts
     };
+    if opts.module.is_some() {
+        check_module(opts.module, &Manifest::load(opts.crate_dir)?)?;
+    }
     if opts.module.is_none()
         && let Ok(manifest) = Manifest::load(opts.crate_dir)
         && let Some(built) = stale_build(opts.crate_dir, &manifest)
@@ -3214,7 +3266,11 @@ mod verdict_tests {
                 .starts_with("Ship it: no function")
         );
         let mixed = verdict(&[row("a", 4.0), row("b", 0.5)], ts);
-        assert!(mixed.advice.contains("Keep the slower ones") && mixed.advice.ends_with("b."));
+        assert!(mixed.advice.contains("Keep the slower one") && mixed.advice.ends_with("b."));
+        let mixed_many = verdict(&[row("a", 10.0), row("b", 0.5), row("c", 0.5)], ts);
+        assert!(
+            mixed_many.advice.contains("Keep the slower ones") && mixed_many.advice.ends_with("c.")
+        );
         assert!(
             verdict(&[row("a", 0.2), row("b", 0.3)], ts)
                 .advice
@@ -3224,6 +3280,45 @@ mod verdict_tests {
             verdict(&[row("a", 0.5)], crate::lang::Lang::C)
                 .advice
                 .starts_with("No call overhead")
+        );
+    }
+
+    #[test]
+    fn advice_singular_for_one_slower_or_tied_function() {
+        let ts = crate::lang::Lang::Ts;
+        // One slower function in C: names it, not "these"/"them".
+        let c_one = verdict(&[row("add", 0.5)], crate::lang::Lang::C);
+        assert_eq!(
+            c_one.advice,
+            "No call overhead in C: add is slower as Rust code. Profile and optimize it, or keep it in C."
+        );
+        let c_many = verdict(&[row("add", 0.5), row("sub", 0.5)], crate::lang::Lang::C);
+        assert!(
+            c_many.advice.starts_with(
+                "No call overhead in C: these are slower as Rust code. Profile and optimize them"
+            ),
+            "{}",
+            c_many.advice
+        );
+
+        // One slower function mixed with a faster one: "the slower one" and "its callers".
+        let mixed_one = verdict(&[row("a", 4.0), row("b", 0.5)], ts);
+        assert!(
+            mixed_one.advice.contains("the slower one") && mixed_one.advice.contains("its callers"),
+            "{}",
+            mixed_one.advice
+        );
+
+        // A single function that only ties (no slower, not all faster) does not say "some".
+        let tie_one = verdict(&[row("twice", 1.0)], ts);
+        assert_eq!(
+            tie_one.advice,
+            "Ship it: the function is not slower in Rust; it ties."
+        );
+        let tie_many = verdict(&[row("a", 3.0), row("b", 1.0)], ts);
+        assert_eq!(
+            tie_many.advice,
+            "Ship it: no function is slower in Rust; some only tie."
         );
     }
 
