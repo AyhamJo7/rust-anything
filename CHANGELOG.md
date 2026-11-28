@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `gate` on a unit crate that `app lift` has made part of a pure Rust app runs the checks that
+  still apply (fmt, clippy, tests, unsafe, lockfile, advisories, ported) and adds a `lifted` line
+  saying the recorded cases are checked by `app replay`. It used to fail `api` and `behavior`
+  because the bindings `lift` removes are what it compared through (#914).
 - `record --sandbox` and `app record --sandbox` (MCP `record` and `app_record`: `sandbox`) run
   the original with no network, its repository read-only and CPU and memory limits:
   bubblewrap on Linux (`--unshare-net`, the file system read-only apart from the run's scratch
