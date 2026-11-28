@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `map --json` names a C ABI port's kind `"c-abi"`, as the manifest and `bridge --kind` do, not
+  `"cabi"` (#873, #918 by @aaas72).
 - The `assets` item of the `app lift` checklist no longer warns about reads of the machine's own
   files (`/proc/`, `/sys/`, `/dev/`, `/etc/`, `/usr/`, `/var/`, `/run/`): they cannot be embedded
   or shipped, and the warning hid the ones that can (#916, #917 by @AyhamJo7).
