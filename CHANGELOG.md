@@ -2,11 +2,22 @@
 
 ## Unreleased
 
+- `analyze` also flags TS/JS unary `~` and bitwise assignment operators (`&=`, `|=`, `^=`, `<<=`,
+  `>>=`, `>>>=`) as `Number semantics`, alongside the binary bitwise operators: all of them
+  truncate `f64` numbers to 32-bit integers (#789 by @brixtonpham).
+- `analyze` no longer lists a Python project's own modules as PyPI dependencies when a script
+  imports them from its own folder (`import _kit` next to `_kit.py`) or from a folder it puts on
+  `sys.path` itself. They were reported as packages of unknown fit (`-kit`), each with a "which
+  crate replaces it" decision, and the unit that uses them was not ordered after the unit that
+  holds them (#803, #804 by @AyhamJo7).
 - Python: `pathlib.Path` (and `PurePath`, `os.PathLike`) is a bridged type. A `Path` parameter is
   `std::path::PathBuf` in `port.rs`, `record` calls the original with real path objects, and a
   returned path is recorded by its text. Before, the parameter was `serde_json::Value` and every
   recorded case raised `AttributeError` on the dict, list or string it was given, and every
-  returned path was recorded as the same `{"$repr": "PosixPath"}` (#807).
+  returned path was recorded as the same `{"$repr": "PosixPath"}` (#807, #808 by @AyhamJo7).
+
+## 5.0.2 (2026-11-28)
+
 - `profile` on Java keeps the samples of every JVM the workload starts. Each one now writes its own
   recording (`profile-<pid>.jfr`) and `profile` reads them all, where they used to share one
   `profile.jfr` and the last JVM to exit replaced the others, so work done in a child JVM (a Gradle
