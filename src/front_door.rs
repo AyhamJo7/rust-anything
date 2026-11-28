@@ -450,45 +450,127 @@ fn exit_code(status: ExitStatus) -> u8 {{
     )
 }
 
-/// `mod name;` (and `pub mod`, `pub(crate) mod`) on a line of its own: the module's name.
-fn module_line(line: &str) -> Option<&str> {
-    let rest = line.trim();
-    let rest = match rest.strip_prefix("pub") {
-        Some(after) => match after.trim_start().strip_prefix('(') {
-            Some(inner) => inner.split_once(')')?.1,
-            None => after,
-        },
-        None => rest,
+/// `text` with its comments blanked out (line and nested block comments), byte for byte, so a
+/// declaration in a comment is not read and every position still matches the text.
+fn blank_comments(text: &str) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    let mut out = String::with_capacity(text.len());
+    let (mut at, mut depth) = (0, 0usize);
+    let blank = |out: &mut String, c: char| {
+        if c == '\n' {
+            out.push('\n');
+        } else {
+            out.extend(std::iter::repeat_n(' ', c.len_utf8()));
+        }
     };
-    let name = rest
-        .trim_start()
-        .strip_prefix("mod ")?
-        .trim()
-        .strip_suffix(';')?
-        .trim();
-    (!name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_')).then_some(name)
+    while at < chars.len() {
+        let next = chars.get(at + 1).copied();
+        if depth == 0 && chars[at] == '/' && next == Some('/') {
+            while at < chars.len() && chars[at] != '\n' {
+                blank(&mut out, chars[at]);
+                at += 1;
+            }
+        } else if chars[at] == '/' && next == Some('*') {
+            depth += 1;
+            out.push_str("  ");
+            at += 2;
+        } else if depth > 0 && chars[at] == '*' && next == Some('/') {
+            depth -= 1;
+            out.push_str("  ");
+            at += 2;
+        } else if depth > 0 {
+            blank(&mut out, chars[at]);
+            at += 1;
+        } else {
+            out.push(chars[at]);
+            at += 1;
+        }
+    }
+    out
+}
+
+/// The module declarations at the top of a line (after attributes, which may span lines) in
+/// `text`, as `(module name, the declaration as written)`. Comments are not read; `r#name` is
+/// the module `name`; a trailing `// comment` stays with its declaration.
+fn module_declarations(text: &str) -> Vec<(String, String)> {
+    static DECLARATION: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(
+            r"\b(?:pub(?:\s*\([^)]*\))?\s+)?mod\s+(?:r#)?([A-Za-z_][A-Za-z0-9_]*)\s*;",
+        )
+        .expect("valid regex")
+    });
+    let code = blank_comments(text);
+    let mut found = Vec::new();
+    for caps in DECLARATION.captures_iter(&code) {
+        let whole = caps.get(0).expect("whole match");
+        // Walk back over the attributes attached to it: `#[...]` groups, brackets matched.
+        let mut start = whole.start();
+        loop {
+            let before = code[..start].trim_end();
+            if !before.ends_with(']') {
+                break;
+            }
+            let mut depth = 0;
+            let open = before.char_indices().rev().find_map(|(i, c)| {
+                match c {
+                    ']' => depth += 1,
+                    '[' => depth -= 1,
+                    _ => {}
+                }
+                (depth == 0).then_some(i)
+            });
+            match open.and_then(|i| before[..i].trim_end().strip_suffix('#')) {
+                Some(hash) => start = hash.len(),
+                None => break,
+            }
+        }
+        // Only a declaration that begins its line (or follows attributes that do).
+        let line_start = code[..start].rfind('\n').map_or(0, |i| i + 1);
+        if !code[line_start..start].trim().is_empty() {
+            continue;
+        }
+        let line_end = code[whole.end()..]
+            .find('\n')
+            .map_or(code.len(), |i| whole.end() + i);
+        let comment = if code[whole.end()..line_end].trim().is_empty() {
+            text[whole.end()..line_end].trim_end()
+        } else {
+            ""
+        };
+        found.push((
+            caps[1].to_string(),
+            format!("{}{comment}", &text[start..whole.end()]),
+        ));
+    }
+    found
+}
+
+/// The module a generated line declares, when it is one.
+fn module_line(line: &str) -> Option<String> {
+    module_declarations(line)
+        .into_iter()
+        .next()
+        .map(|(name, _)| name)
 }
 
 /// `generated` (the new `src/units/mod.rs`) with the helper modules of the `existing` one: the
-/// `mod name;` lines, with the attributes above them, of modules that are not a unit's glue. A
-/// rewrite of the file on every `wire` and on `lift` would otherwise delete a module written
-/// beside the glue, and the glue that uses it would stop compiling.
+/// module declarations, with the attributes attached to them, of modules that are not a unit's
+/// glue. A rewrite of the file on every `wire` and on `lift` would otherwise delete a module
+/// written beside the glue, and the glue that uses it would stop compiling.
 pub(crate) fn keep_helper_modules(existing: &str, generated: &str, units: &[&str]) -> String {
-    let lines: Vec<&str> = existing.lines().collect();
-    let mut kept: Vec<String> = Vec::new();
-    for (at, line) in lines.iter().enumerate() {
-        let Some(name) = module_line(line) else {
-            continue;
-        };
-        if units.contains(&name) || generated.lines().any(|l| module_line(l) == Some(name)) {
+    let declared: Vec<String> = module_declarations(generated)
+        .into_iter()
+        .map(|(n, _)| n)
+        .collect();
+    let mut kept: Vec<(String, String)> = Vec::new();
+    for (name, block) in module_declarations(existing) {
+        if units.contains(&name.as_str())
+            || declared.contains(&name)
+            || kept.iter().any(|(known, _)| *known == name)
+        {
             continue;
         }
-        let first = (0..at)
-            .rev()
-            .take_while(|i| lines[*i].trim_start().starts_with("#["))
-            .last()
-            .unwrap_or(at);
-        kept.push(lines[first..=at].join("\n"));
+        kept.push((name, block));
     }
     if kept.is_empty() {
         return generated.to_string();
@@ -507,7 +589,7 @@ pub(crate) fn keep_helper_modules(existing: &str, generated: &str, units: &[&str
         (None, None) => (out.len(), false),
     };
     let mut text: Vec<String> = out[..at].iter().map(|l| l.to_string()).collect();
-    text.extend(kept);
+    text.extend(kept.into_iter().map(|(_, block)| block));
     if blank {
         text.push(String::new());
     }
@@ -1216,6 +1298,39 @@ fn wire_unit(opts: &WireOptions) -> Result<WireOutcome> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn helper_modules_are_read_the_way_rust_reads_them() {
+        let generated = "mod alpha;\n\npub fn dispatch() {}\n";
+        let existing = "mod alpha;\n\
+            mod commented; // shared utilities\n\
+            mod r#type;\n\
+            /*\nmod obsolete;\n*/\n\
+            // mod also_gone;\n\
+            #[cfg(\n    test\n)]\nmod checks;\n\
+            #[cfg(test)] mod inline;\n\
+            /* a /* nested */ comment */ mod after_comment;\n\
+            fn body() {\n    let x = 1; mod not_top_level;\n}\n";
+        let kept = keep_helper_modules(existing, generated, &["alpha"]);
+        for wanted in [
+            "mod commented; // shared utilities",
+            "mod r#type;",
+            "#[cfg(\n    test\n)]\nmod checks;",
+            "#[cfg(test)] mod inline;",
+            "mod after_comment;",
+        ] {
+            assert!(kept.contains(wanted), "{wanted:?} missing from\n{kept}");
+        }
+        // Comments are not declarations, and a `mod` inside a function body is not a helper.
+        for gone in ["obsolete", "also_gone", "not_top_level"] {
+            assert!(!kept.contains(gone), "{gone} in\n{kept}");
+        }
+        // A raw identifier is the module it names: `r#alpha` is the unit's `alpha`.
+        assert_eq!(
+            keep_helper_modules("mod r#alpha;\n", generated, &["alpha"]),
+            generated
+        );
+    }
 
     #[test]
     fn helper_modules_beside_the_glue_survive_a_rewrite_of_units_mod() {
