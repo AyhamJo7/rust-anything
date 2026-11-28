@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `record`'s coverage line says "1 more file" instead of "1 more files" (#886, #919 by
+  @Harsh28-raj).
 - The report card counts one recorded case in the singular in its headline and label (#887, #890
   by @XiaoBinGan).
 - The directory plugin's description names PowerShell and Swift among the languages and in the
