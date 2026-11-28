@@ -245,6 +245,78 @@ fn pyo3_bytes_bridge_accepts_bytes_bytearray_memoryview_and_returns_bytes() {
 }
 
 #[test]
+fn pyo3_dataclass_argument_crosses_as_its_fields() {
+    let Some(python) = common::python() else {
+        return;
+    };
+    let root = project(
+        "pyo3-dataclass",
+        &[
+            (
+                "pyproject.toml",
+                "[project]\nname = \"shop\"\nversion = \"0.1.0\"\n",
+            ),
+            (
+                "shop/__init__.py",
+                "from dataclasses import dataclass\n\n\n\
+                 @dataclass\nclass Item:\n    name: str\n    count: int\n\n\n\
+                 def label(item: Item) -> str:\n    return f\"{item.count} x {item.name}\"\n",
+            ),
+        ],
+    );
+    let dir = root.join("port");
+    bridge::bridge(&bridge::Options {
+        root: &root,
+        unit: "shop/",
+        kind: Some(Kind::Pyo3),
+        out: Some(dir.clone()),
+        name: None,
+        force: false,
+        keep: Vec::new(),
+        lang: None,
+        batch: Vec::new(),
+        as_json: Vec::new(),
+        allocator: Default::default(),
+    })
+    .unwrap();
+
+    let port_path = dir.join("src/port.rs");
+    let port = std::fs::read_to_string(&port_path).unwrap();
+    let start = port
+        .find("pub fn label(item: serde_json::Value) -> Result<String, String>")
+        .unwrap_or_else(|| panic!("{port}"));
+    let open = start + port[start..].find('{').unwrap();
+    let close = open + port[open..].find("\n}").unwrap();
+    // The recorder writes an instance as `{"$object": name, "attrs": {...}}`; the port reads that.
+    let ported = format!(
+        "{}{{\n    let attrs = &item[\"attrs\"];\n    Ok(format!(\"{{}} x {{}}\", attrs[\"count\"], attrs[\"name\"].as_str().unwrap_or_default())){}",
+        &port[..open],
+        &port[close..]
+    );
+    std::fs::write(&port_path, ported).unwrap();
+    harness::build(&dir).unwrap();
+
+    // What a caller of the shadow module passes is the instance itself.
+    let paths = std::env::join_paths([dir.join("python"), root.clone()]).unwrap();
+    let check = Command::new(python)
+        .env("PYTHONPATH", paths)
+        .args([
+            "-c",
+            "import shop_rs as m\nfrom shop import Item\n\
+             out = m.label(Item('nut', 3))\nassert out == '3 x nut', out\n",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        check.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn pyo3_float_param_with_integer_default_builds_and_matches() {
     if common::python().is_none() {
         return;

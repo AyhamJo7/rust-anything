@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- A PyO3 binding takes a dataclass (or any instance that keeps its fields in `__dict__`) where
+  the port declares `serde_json::Value`: it arrives as `{"$object": name, "attrs": {...}}`, the
+  shape `record` writes. The binding used to raise `TypeError: unsupported argument type`, which
+  `diff` did not show, because its driver passes the recorded dict whenever the original module
+  is not loaded (#825).
 - `profile` on Java keeps the samples of every JVM the workload starts. Each one now writes its own
   recording (`profile-<pid>.jfr`) and `profile` reads them all, where they used to share one
   `profile.jfr` and the last JVM to exit replaced the others, so work done in a child JVM (a Gradle

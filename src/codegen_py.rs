@@ -782,6 +782,14 @@ pub fn from_py(obj: &Bound<'_, PyAny>) -> Result<Value, String> {
     if let Some(bytes) = extract_bytes(obj) {
         return Ok(json!({"$bytes": bytes?}));
     }
+    // An instance that keeps its fields in `__dict__` (a dataclass, a plain class): its class
+    // name and fields, the shape the recorder writes for it.
+    if let Ok(fields) = obj.getattr("__dict__")
+        && fields.is_instance_of::<PyDict>()
+    {
+        let name = obj.get_type().name().map_err(|e| e.to_string())?;
+        return Ok(json!({"$object": name.to_string(), "attrs": from_py(&fields)?}));
+    }
     Err(type_error(obj))
 }
 
