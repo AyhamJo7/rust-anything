@@ -324,6 +324,114 @@ fn check_count(opts: &RecordOptions) -> Result<()> {
     Ok(())
 }
 
+/// Parts of an environment variable's name that say its value is a secret.
+const SECRET_NAME_PARTS: [&str; 8] = [
+    "SECRET",
+    "TOKEN",
+    "PASSWORD",
+    "PASSWD",
+    "PASSPHRASE",
+    "CREDENTIAL",
+    "API_KEY",
+    "PRIVATE_KEY",
+];
+/// A shorter value is too likely to be an ordinary word to say it was recorded by accident.
+const MIN_SECRET_CHARS: usize = 8;
+
+/// Whether `line` of the recording holds `value`: in one of its decoded strings (a driver may
+/// escape `<` as `\u003c`, and the escape differs between languages), or, for a line that is
+/// not JSON, as written.
+fn line_holds(line: &str, value: &str) -> bool {
+    fn in_strings(json: &Value, value: &str) -> bool {
+        match json {
+            Value::String(text) => text.contains(value),
+            Value::Array(items) => items.iter().any(|item| in_strings(item, value)),
+            Value::Object(fields) => fields
+                .iter()
+                .any(|(key, item)| key.contains(value) || in_strings(item, value)),
+            _ => false,
+        }
+    }
+    match serde_json::from_str::<Value>(line) {
+        Ok(json) => in_strings(&json, value),
+        Err(_) => line.contains(value),
+    }
+}
+
+/// The environment variables with a secret-looking name whose value appears in the recorded
+/// `cases`, each with the functions whose cases hold it. Only names come back, never values.
+fn recorded_secrets(
+    cases: &str,
+    environment: impl IntoIterator<Item = (String, String)>,
+) -> Vec<(String, Vec<String>)> {
+    let mut found = Vec::new();
+    for (name, value) in environment {
+        let upper = name.to_uppercase();
+        if value.chars().count() < MIN_SECRET_CHARS
+            || !SECRET_NAME_PARTS.iter().any(|part| upper.contains(part))
+        {
+            continue;
+        }
+        let mut functions: Vec<String> = Vec::new();
+        for line in cases.lines().filter(|line| line_holds(line, &value)) {
+            let function = serde_json::from_str::<Value>(line)
+                .ok()
+                .and_then(|case| case["fn"].as_str().map(str::to_string))
+                .unwrap_or_else(|| "?".to_string());
+            if !functions.contains(&function) {
+                functions.push(function);
+            }
+        }
+        if !functions.is_empty() {
+            found.push((name, functions));
+        }
+    }
+    found.sort();
+    found
+}
+
+/// Takes the recording away: removed, or, when the folder does not let it be removed, emptied.
+/// Returns what was done.
+fn discard_recording(path: &Path) -> std::io::Result<&'static str> {
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok("removed"),
+        Err(_) => std::fs::write(path, b"").map(|()| "emptied"),
+    }
+}
+
+/// Fails, after removing the recording, when `cases.jsonl` holds the value of a secret-looking
+/// environment variable. The file is meant to be committed. Variables whose name or value is not
+/// valid Unicode cannot be searched for as text and are skipped.
+fn refuse_recorded_secrets(cases_path: &Path) -> Result<()> {
+    let Ok(cases) = std::fs::read_to_string(cases_path) else {
+        return Ok(());
+    };
+    let environment = std::env::vars_os()
+        .filter_map(|(name, value)| Some((name.into_string().ok()?, value.into_string().ok()?)));
+    let found = recorded_secrets(&cases, environment);
+    if found.is_empty() {
+        return Ok(());
+    }
+    let done = discard_recording(cases_path).with_context(|| {
+        format!(
+            "the recording holds an environment secret and {} could be neither removed nor emptied: delete it by hand",
+            cases_path.display()
+        )
+    })?;
+    let listed: Vec<String> = found
+        .iter()
+        .map(|(name, functions)| format!("{name} (in {})", functions.join(", ")))
+        .collect();
+    bail!(
+        "the recording held the value of {}, and {} is meant to be committed: it was {done}. \
+         Record without those variables (`env -u NAME rust-anything record ...`), or change \
+         the functions or inputs that return them",
+        listed.join("; "),
+        CASES,
+        done = done
+    )
+}
+
 pub fn record(opts: &RecordOptions) -> Result<RecordOutcome> {
     check_count(opts)?;
     let crate_dir = std::path::absolute(opts.crate_dir)?;
@@ -339,6 +447,7 @@ pub fn record(opts: &RecordOptions) -> Result<RecordOutcome> {
     let coverage_dir = opts.crate_dir.join(WORK_DIR).join(COVERAGE_DIR);
     let _ = std::fs::remove_dir_all(&coverage_dir);
     let out = record_with(opts, &manifest, &cases)?;
+    refuse_recorded_secrets(&out)?;
     let coverage = crate::recording::node_coverage(&coverage_dir, &manifest);
     crate::recording::save_fingerprint(opts.crate_dir, &manifest, coverage.as_ref())?;
     let mut outcome = summarize(opts, &out, traps, regex_functions, coverage)?;
@@ -2614,6 +2723,81 @@ writeFileSync(outPath, JSON.stringify(summary, null, 2))
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_recorded_secret_is_found_by_the_variable_that_holds_it() {
+        let canary = ["EXAMPLE", "0000", "fake"].join("-");
+        let cases = format!(
+            "{{\"fn\": \"setting\", \"args\": [\"A\"], \"ok\": \"{canary}\"}}\n\
+             {{\"fn\": \"other\", \"args\": [], \"ok\": \"fine\"}}\n\
+             {{\"fn\": \"quoted\", \"args\": [], \"ok\": \"has \\\"quote\\\" and tab\\t\"}}\n"
+        );
+        let cases = cases.as_str();
+        let vars = |pairs: &[(&str, &str)]| -> Vec<(String, String)> {
+            pairs
+                .iter()
+                .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+                .collect()
+        };
+        // A secret-looking name whose value is in the recording is reported, value unnamed.
+        let found = super::recorded_secrets(cases, vars(&[("MY_API_TOKEN", &canary)]));
+        assert_eq!(
+            found,
+            [("MY_API_TOKEN".to_string(), vec!["setting".to_string()])]
+        );
+        // The value as JSON escapes it is found too.
+        let found =
+            super::recorded_secrets(cases, vars(&[("DB_PASSWORD", "has \"quote\" and tab\t")]));
+        assert_eq!(
+            found,
+            [("DB_PASSWORD".to_string(), vec!["quoted".to_string()])]
+        );
+        // Not reported: a name that is not secret-looking, a short value, a value that is absent.
+        let quiet = vars(&[
+            ("EDITOR_NAME", &canary),
+            ("API_TOKEN", "fine"),
+            ("GITHUB_TOKEN", "not-in-the-cases"),
+            ("GIT_AUTHOR_NAME", &canary),
+        ]);
+        assert!(super::recorded_secrets(cases, quiet).is_empty());
+    }
+
+    #[test]
+    fn a_secret_is_found_whichever_way_the_driver_escaped_it() {
+        // Go's `json.Marshal` writes `<` as `\u003c`; the value is the same once decoded.
+        let cases = "{\"fn\": \"setting\", \"args\": [], \"ok\": \"pre\\u003cfix-example\"}\n\
+                     {\"fn\": \"nested\", \"args\": [], \"ok\": {\"k\": [\"x pre<fix-example y\"]}}\n\
+                     not json pre<fix-example\n";
+        let vars = vec![("MY_SECRET".to_string(), "pre<fix-example".to_string())];
+        let found = super::recorded_secrets(cases, vars);
+        assert_eq!(
+            found,
+            [(
+                "MY_SECRET".to_string(),
+                vec!["setting".to_string(), "nested".to_string(), "?".to_string()]
+            )]
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_recording_that_cannot_be_removed_is_emptied() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir =
+            std::env::temp_dir().join(format!("rust-anything-discard-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("cases.jsonl");
+        std::fs::write(&file, "secret\n").unwrap();
+        // A folder that does not allow removing files, with a file that can be written.
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o555)).unwrap();
+        let done = super::discard_recording(&file);
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+        // Running as root removes it anyway; either way nothing readable is left.
+        assert!(matches!(done, Ok("emptied" | "removed")));
+        assert!(std::fs::read_to_string(&file).map_or(true, |text| text.is_empty()));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn a_class_bench_row_is_failing_when_its_cases_do_not_match() {
         let outcome = DiffOutcome {

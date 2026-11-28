@@ -69,6 +69,12 @@ read. `ts/exports.rs` reads export lists; check `bridge` on a unit written that 
 the original counted against Jest's limit. Wrap anything added to user files in
 `/* c8 ignore start */` and `/* istanbul ignore next */`.
 
+**A recording held a secret from the environment.** A recorded function that returns an
+environment variable (`os.environ.get("API_TOKEN")`) put its value into `cases.jsonl`, the file
+the workflow says to commit. `record` now fails and removes the file when it holds the value of
+a variable whose name says secret (token, password, secret, credential, API key, private key,
+8 characters or more); record with `env -u NAME`, or change the inputs.
+
 **Two Python units would not link into one front door.** Each bridged crate defines
 `PyInit__native`, and `rust/app` links units as rlibs, so the second unit made the release link
 fail with `duplicate symbol`. The module sits behind the `python-module` feature and the front

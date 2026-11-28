@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `record` refuses to leave a secret in `cases.jsonl`. A recorded function that returned the
+  value of an environment variable such as `API_TOKEN` or `DB_PASSWORD` wrote it into the file
+  the workflow says to commit. When the recording holds the value (8 characters or more) of a
+  variable whose name says secret (also when the driver escaped it, as Go does `<`), `record`
+  removes the file, or empties it where the folder does not allow that, and fails, naming the
+  variable and the functions, never the value (#869, #870 by @AyhamJo7).
 - `record`'s coverage line (and `gate`'s coverage check) says `ran 1 of the original's 1 line`
   for a one-line unit, not "1 lines" (#855, #885 by @XiaoBinGan).
 - Two Python units now link into one front door. Every bridged Python crate defined
