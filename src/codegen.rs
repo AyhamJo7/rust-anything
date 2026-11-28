@@ -353,7 +353,20 @@ pub fn parse_port(source: &str) -> PortApi {
             });
         }
     }
-    let own = api.structs.clone();
+    // The type names the port declares itself: structs, enums and aliases.
+    let own: Vec<String> = lines
+        .iter()
+        .filter_map(|line| {
+            ["pub struct ", "pub enum ", "pub type "]
+                .iter()
+                .find_map(|keyword| line.trim_start().strip_prefix(keyword))
+        })
+        .map(|rest| {
+            rest.chars()
+                .take_while(|c| c.is_alphanumeric() || *c == '_')
+                .collect()
+        })
+        .collect();
     let functions = api.functions.iter_mut();
     let in_classes = api.classes.iter_mut().flat_map(|class| {
         let methods = class.methods.iter_mut().map(|(method, _)| method);
@@ -384,7 +397,7 @@ fn with_paths(ty: &str, own: &[String]) -> String {
         let path = IMPORTABLE
             .iter()
             .find(|(name, _)| name == word)
-            .filter(|_| !out.ends_with("::") && !own.contains(word));
+            .filter(|_| !out.trim_end().ends_with("::") && !own.contains(word));
         out.push_str(path.map_or(word.as_str(), |(_, path)| path));
         word.clear();
     };
@@ -1528,6 +1541,19 @@ mod tests {
              /// Port of `wrap`.\npub fn wrap(n: i64) -> Result<Value, String> {\n    todo!()\n}\n",
         );
         assert_eq!(own.functions[0].ret, "Value");
+        for declared in ["pub type Value = i64;", "pub enum Value {\n    One,\n}"] {
+            let own = parse_port(&format!(
+                "{declared}\n\n/// Port of `wrap`.\npub fn wrap(n: i64) -> Result<Value, String> {{\n    todo!()\n}}\n"
+            ));
+            assert_eq!(own.functions[0].ret, "Value", "{declared}");
+        }
+
+        // `::` may have whitespace after it: the name behind it already has its path.
+        let spaced = parse_port(
+            "/// Port of `keep`.\npub fn keep(x: serde_json:: Value) -> Result<serde_json ::Value, String> {\n    todo!()\n}\n",
+        );
+        assert_eq!(spaced.functions[0].params[0].1, "serde_json:: Value");
+        assert_eq!(spaced.functions[0].ret, "serde_json ::Value");
     }
 
     #[test]
