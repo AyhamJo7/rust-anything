@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `record`'s coverage line (and `gate`'s coverage check) says `ran 1 of the original's 1 line`
+  for a one-line unit, not "1 lines" (#855, #885 by @XiaoBinGan).
 - Two Python units now link into one front door. Every bridged Python crate defined
   `PyInit__native`, so a release build with two of them failed with `duplicate symbol`. The
   module is behind a `python-module` cargo feature (on by default; `refresh` adds it to older
