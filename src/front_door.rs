@@ -849,9 +849,7 @@ fn library_wire(
     }
     let cargo_path = app_dir.join("Cargo.toml");
     let mut doc: DocumentMut = std::fs::read_to_string(&cargo_path)?.parse()?;
-    let mut dep = InlineTable::new();
-    dep.insert("path", path.as_str().into());
-    doc["dependencies"][crate_name.as_str()] = value(dep);
+    doc["dependencies"][crate_name.as_str()] = value(unit_dependency(&path, crate_dir));
     std::fs::write(&cargo_path, doc.to_string())?;
     if manifest.kind == crate::bridge::Kind::Pyo3 {
         crate::library::allow_python_symbols(&app_dir)?;
@@ -934,6 +932,26 @@ pub struct WireOutcome {
     pub glue_pending: bool,
     pub gate: Option<bool>,
     pub replay: Option<ReplayOutcome>,
+}
+
+/// How `rust/app` depends on a unit: by path, and without the unit's Python module when it has
+/// one. Every PyO3 unit defines the same `PyInit__native`, so linking two of them into one
+/// binary fails on the duplicate symbol.
+fn unit_dependency(path: &str, crate_dir: &Path) -> InlineTable {
+    let mut dep = InlineTable::new();
+    dep.insert("path", path.into());
+    let has_module = std::fs::read_to_string(crate_dir.join("Cargo.toml"))
+        .ok()
+        .and_then(|text| text.parse::<DocumentMut>().ok())
+        .is_some_and(|doc| {
+            doc.get("features")
+                .and_then(|f| f.get(crate::codegen::PYTHON_MODULE))
+                .is_some()
+        });
+    if has_module {
+        dep.insert("default-features", false.into());
+    }
+    dep
 }
 
 pub fn wire(opts: &WireOptions) -> Result<WireOutcome> {
@@ -1074,9 +1092,7 @@ pub fn wire(opts: &WireOptions) -> Result<WireOutcome> {
 
     let cargo_path = app_dir.join("Cargo.toml");
     let mut doc: DocumentMut = std::fs::read_to_string(&cargo_path)?.parse()?;
-    let mut dep = InlineTable::new();
-    dep.insert("path", path.as_str().into());
-    doc["dependencies"][crate_name.as_str()] = value(dep);
+    doc["dependencies"][crate_name.as_str()] = value(unit_dependency(&path, &crate_dir));
     std::fs::write(&cargo_path, doc.to_string())?;
 
     let glue = app_dir
@@ -1121,6 +1137,27 @@ pub fn wire(opts: &WireOptions) -> Result<WireOutcome> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_unit_with_a_python_module_is_linked_without_it() {
+        let dir = std::env::temp_dir().join(format!("rust-anything-dep-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let dep = |cargo: &str| {
+            std::fs::write(dir.join("Cargo.toml"), cargo).unwrap();
+            unit_dependency("../x-rs", &dir).to_string()
+        };
+        let python = dep(
+            "[package]\nname = \"x-rs\"\n\n[features]\ndefault = [\"python-module\"]\npython-module = []\n",
+        );
+        assert_eq!(python, "{ path = \"../x-rs\", default-features = false }");
+        // A unit that has no such feature (Node, a hand-written crate) is linked as before.
+        assert_eq!(
+            dep("[package]\nname = \"x-rs\"\n"),
+            "{ path = \"../x-rs\" }"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     fn case(args: &[&str], ok: bool) -> (Vec<String>, bool) {
         (args.iter().map(|a| a.to_string()).collect(), ok)
