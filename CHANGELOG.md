@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `record --inputs` on Python and Ruby refuses a `"kwargs"` that is not an object of argument
+  names to values, naming the line, and reads `"kwargs": null` as none (#877, #898 by
+  @OnurrUgur).
 - `fuzz --keep` refuses to append kept cases that hold the value of a secret-looking environment
   variable, as `record` does, and leaves the recording as it was (#888, #897 by @OnurrUgur).
 - The website's command help (`cli-help.json`) is regenerated from the 5.0.2 build, so it shows
