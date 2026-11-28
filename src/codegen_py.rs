@@ -23,7 +23,9 @@ fn signature(f: &PortFn, source: &[Param]) -> String {
             keyword_only = true;
             parts.push("*".to_string());
         }
-        let py_name = name.trim_start_matches("r#");
+        // A raw identifier (`r#type`) stays raw: the signature is Rust, and PyO3 shows the
+        // parameter to Python without the `r#`.
+        let py_name = name.as_str();
         match param {
             Some(p) if p.optional => match p.default.as_deref().and_then(rust_literal) {
                 Some(literal) => {
@@ -1201,6 +1203,37 @@ mod tests {
         };
         let source = [param("factor", "-1_000"), param("count", "2")];
         assert_eq!(signature(&f, &source), "factor=-1000_f64, count=2");
+    }
+
+    #[test]
+    fn a_parameter_named_like_a_rust_keyword_keeps_its_raw_identifier() {
+        // `def tag(type, ref=None)`: the port's parameters are `r#type` and `r#ref`, and the
+        // signature has to name them the same way, or `signature = (type, ref=None)` is not
+        // Rust. PyO3 shows a raw identifier to Python without its `r#`.
+        let f = PortFn {
+            js_name: "tag".into(),
+            rust_name: "tag".into(),
+            params: vec![
+                ("r#type".into(), "String".into()),
+                ("r#ref".into(), "Option<String>".into()),
+            ],
+            ret: "String".into(),
+            fallible: true,
+            is_async: false,
+        };
+        let source = [
+            Param {
+                name: "type".into(),
+                ..Default::default()
+            },
+            Param {
+                name: "ref".into(),
+                optional: true,
+                default: Some("None".into()),
+                ..Default::default()
+            },
+        ];
+        assert_eq!(signature(&f, &source), "r#type, r#ref=None");
     }
 
     #[test]

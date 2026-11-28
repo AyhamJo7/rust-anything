@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `bridge` on a Python function with a parameter named like a Rust keyword (`type`, `ref`)
+  writes a PyO3 crate that compiles. The `#[pyo3(signature = ...)]` line named the parameter
+  without its `r#`, which is not Rust (`expected identifier, found keyword`); it keeps the raw
+  identifier now, and Python still calls the parameter by its own name (#827).
 - `profile` on Java keeps the samples of every JVM the workload starts. Each one now writes its own
   recording (`profile-<pid>.jfr`) and `profile` reads them all, where they used to share one
   `profile.jfr` and the last JVM to exit replaced the others, so work done in a child JVM (a Gradle
