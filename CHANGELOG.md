@@ -31,6 +31,11 @@
   writes a PyO3 crate that compiles. The binding was a plain `Bound` with a `=None` default,
   which PyO3 rejects (`E0308: expected Bound<'_, PyAny>, found Option<_>`); it is `Option<Bound>`
   now, as for other optional objects (#821, #822 by @AyhamJo7).
+- A port may import `serde_json::Value` or `std::collections::HashMap` and use the short name
+  in its signatures. `refresh` (and every command that regenerates bindings) repeated the
+  short name in `src/lib.rs`, which has none of the port's `use` lines, so the crate stopped
+  compiling (`E0425: cannot find type Value in this scope`). Signatures are now read with the
+  full path, unless the port defines a type of that name itself (#823, #824 by @AyhamJo7).
 
 ## 5.0.2 (2026-11-28)
 
