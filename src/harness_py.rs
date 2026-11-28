@@ -236,6 +236,7 @@ pub fn bench(crate_dir: &Path, manifest: &Manifest, min_ms: u64) -> Result<Vec<B
 pub const DRIVER_PY: &str = r#"
 import dataclasses
 import importlib
+import inspect
 import json
 import math
 import os
@@ -428,10 +429,27 @@ def error_text(e):
     return f"{type(e).__name__}: {e}"
 
 
-def call_args(args):
-    """Trailing `undefined` arguments are omitted, so Python defaults apply."""
+def required_count(fn):
+    """How many leading positional parameters of `fn` have no default."""
+    try:
+        params = inspect.signature(fn).parameters.values()
+    except (TypeError, ValueError):
+        return 0
+    count = 0
+    for p in params:
+        if p.kind not in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD) or p.default is not p.empty:
+            break
+        count += 1
+    return count
+
+
+def call_args(args, fn=None):
+    """Trailing `undefined` arguments are omitted, so Python defaults apply. A parameter of `fn`
+    without a default always gets its argument: `undefined` there is `None`, as in
+    `def find(start, stop: Path | None)`, which cannot be called without `stop`."""
     args = list(args)
-    while args and args[-1] == {"$undefined": True}:
+    keep = required_count(fn) if fn is not None else 0
+    while len(args) > keep and args[-1] == {"$undefined": True}:
         args.pop()
     return [dec(a) for a in args]
 
@@ -468,7 +486,7 @@ def run_case(mod, c, rename=None):
         cls = getattr(mod, c["class"])
         results = []
         try:
-            instance = cls(*call_args(c["ctor"]))
+            instance = cls(*call_args(c["ctor"], cls))
             results.append({"ok": True})
         except (KeyboardInterrupt, SystemExit):
             raise
@@ -477,7 +495,8 @@ def run_case(mod, c, rename=None):
             return {"results": results}
         for call in c["calls"]:
             try:
-                results.append({"ok": enc(getattr(instance, call["method"])(*call_args(call["args"])))})
+                method = getattr(instance, call["method"])
+                results.append({"ok": enc(method(*call_args(call["args"], method)))})
             except (KeyboardInterrupt, SystemExit):
                 raise
             except BaseException as e:  # noqa: BLE001
@@ -485,7 +504,8 @@ def run_case(mod, c, rename=None):
         return {"results": results}
     kwargs = call_kwargs(c, rename)
     try:
-        return {"ok": enc(getattr(mod, c["fn"])(*call_args(c["args"]), **kwargs))}
+        fn = getattr(mod, c["fn"])
+        return {"ok": enc(fn(*call_args(c["args"], fn), **kwargs))}
     except (KeyboardInterrupt, SystemExit):
         raise
     except BaseException as e:  # noqa: BLE001
@@ -594,7 +614,7 @@ def bench(cases_path, out_path, package_dir, name, modules_path, min_ms):
             else:
                 # Arguments are decoded once: only the calls are timed.
                 fn = getattr(mod, key)
-                prepared = [(call_args(c["args"]), call_kwargs(c, rename)) for c in cases]
+                prepared = [(call_args(c["args"], fn), call_kwargs(c, rename)) for c in cases]
 
                 def once():
                     for args, kwargs in prepared:

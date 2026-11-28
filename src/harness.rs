@@ -1655,6 +1655,8 @@ fn args_for(
     rng: &mut Rng,
 ) -> Vec<Value> {
     let mut args: Vec<Value> = Vec::new();
+    // The arguments before this index belong to parameters a call cannot leave out.
+    let mut required = 0;
     for p in params {
         match p.ts_type.as_str() {
             t if t.starts_with("len:") => continue,
@@ -1663,6 +1665,7 @@ fn args_for(
                 || t.starts_with("struct:") =>
             {
                 args.push(c_pointer_value(&p.ts_type, rng));
+                required = args.len();
                 continue;
             }
             _ => {}
@@ -1695,6 +1698,9 @@ fn args_for(
         } else {
             args.push(value(&t, rng));
         }
+        if !p.optional && !p.rest {
+            required = args.len();
+        }
     }
     // Search-like functions rarely hit on random text: often derive one string from another.
     let strings: Vec<usize> = (0..args.len()).filter(|&i| args[i].is_string()).collect();
@@ -1714,8 +1720,13 @@ fn args_for(
             }
         }
     }
-    // Trailing optional arguments: sometimes omit them, the way JS callers do.
-    while args.last().is_some_and(|a| a.get("$undefined").is_some()) && rng.below(2) == 0 {
+    // Trailing optional arguments: sometimes omit them, the way JS callers do. A parameter with
+    // no default keeps its argument: `def find(start, stop: Path | None)` cannot be called
+    // without `stop`, so leaving it out records a `TypeError` no caller sees.
+    while args.len() > required
+        && args.last().is_some_and(|a| a.get("$undefined").is_some())
+        && rng.below(2) == 0
+    {
         args.pop();
     }
     args

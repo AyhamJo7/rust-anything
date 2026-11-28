@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `record` on Python no longer leaves out the argument of a required parameter typed `T | None`.
+  `def pick(text: str, fallback: str | None)` was called without `fallback` whenever the case's
+  value was `None`, so each of those cases recorded `TypeError: pick() missing 1 required
+  positional argument` and the call callers really make, `pick(text, None)`, was never recorded.
+  A parameter without a default now always gets its argument; trailing `None`s are still left out
+  for parameters that have a default (#809).
 - `profile` on Java keeps the samples of every JVM the workload starts. Each one now writes its own
   recording (`profile-<pid>.jfr`) and `profile` reads them all, where they used to share one
   `profile.jfr` and the last JVM to exit replaced the others, so work done in a child JVM (a Gradle
