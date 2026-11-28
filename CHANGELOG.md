@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The `assets` item of the `app lift` checklist no longer warns about reads of the machine's own
+  files (`/proc/`, `/sys/`, `/dev/`, `/etc/`, `/usr/`, `/var/`, `/run/`): they cannot be embedded
+  or shipped, and the warning hid the ones that can (#916, #917 by @AyhamJo7).
 - `gate`'s `unsafe` check says `no unsafe code` for zero uses and reports one documented use in the
   singular (#857, #909 by @SPD-RYUK).
 - CLI help and MCP initialization instructions tell users to skip `shadow` for PHP, C#,

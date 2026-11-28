@@ -605,6 +605,16 @@ fn target_items(repo: &Path, stage_app: &Path, target_dir: &Path) -> Vec<Item> {
         .collect()
 }
 
+/// Folders of the machine itself: a file there belongs to the host, so it cannot be embedded or
+/// shipped with the binary.
+const HOST_DIRS: [&str; 7] = [
+    "/proc/", "/sys/", "/dev/", "/etc/", "/usr/", "/var/", "/run/",
+];
+
+fn is_host_path(path: &str) -> bool {
+    HOST_DIRS.iter().any(|dir| path.starts_with(dir))
+}
+
 fn asset_items(repo: &Path, sources: &[PathBuf]) -> Vec<Item> {
     let reads =
         Regex::new(r#"(?:read_to_string|read|read_dir|read_to_end|File::open|open)\(\s*"([^"]+)""#)
@@ -620,7 +630,7 @@ fn asset_items(repo: &Path, sources: &[PathBuf]) -> Vec<Item> {
             for line in text.lines().filter(|l| l.contains("include_")) {
                 included += line;
             }
-            for c in reads.captures_iter(&text) {
+            for c in reads.captures_iter(&text).filter(|c| !is_host_path(&c[1])) {
                 items.push(Item::new(
                     "assets",
                     Mark::Warn,
@@ -1024,6 +1034,28 @@ fn lift_app_dir(opts: &LiftOptions) -> Result<LiftOutcome> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_read_of_a_system_path_is_not_an_asset() {
+        let base =
+            std::env::temp_dir().join(format!("rust-anything-assets-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let src = base.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::write(
+            src.join("main.rs"),
+            "fn main() {\n    let _ = std::fs::read_to_string(\"/proc/self/status\");\n    \
+             let _ = std::fs::read_to_string(\"/etc/hostname\");\n    \
+             let _ = std::fs::read_to_string(\"templates/page.html\");\n}\n",
+        )
+        .unwrap();
+        let items = asset_items(&base, &[src]);
+        let warned: Vec<&str> = items.iter().map(|i| i.detail.as_str()).collect();
+        // Only the file next to the app is an asset: the host's files are not shipped.
+        assert_eq!(warned.len(), 1, "{warned:?}");
+        assert!(warned[0].contains("templates/page.html"), "{warned:?}");
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
     #[test]
     fn stripped_lib_rs_lists_modules_as_rustfmt_orders_them() {
         assert_eq!(
