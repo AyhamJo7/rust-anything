@@ -331,3 +331,35 @@ An untyped parameter is `serde_json::Value`. A parameter that is untyped or type
 `[hashtable]`, `[ordered]`, `[pscustomobject]` or `[object]` is `Option<T>`, unless it is
 `Mandatory` or has a default other than `$null`. A result type the table refuses is
 `serde_json::Value`. Filters, workflows and functions that read the pipeline are refused.
+
+## Swift
+
+Types are read from each parameter's annotation and the `->` result. `Swift.` is optional.
+
+| Source type | Port type | Notes |
+|---|---|---|
+| `String` | `String` | |
+| `Int`, `Int64`, `Int32`, `Int16`, `Int8`, `UInt32`, `UInt16`, `UInt8` | `i64` | |
+| `Double`, `Float` | `f64` | |
+| `Bool` | `bool` | |
+| `Void`, `()` | `()` | |
+| `Int?`, `Optional<Int>` | `Option<i64>` | |
+| `[String]`, `Array<String>` | `Vec<String>` | |
+| `[String: Int]`, `Dictionary<String, Int>` | `serde_json::Value` | |
+| `UInt`, `UInt64` | refused | wider than a JSON-safe integer |
+| `[Int: String]` | refused | JSON object keys are strings |
+| `Set<Int>` | refused | uses a `Set`, whose order changes from run to run |
+| `(Int, String)` | refused | uses a tuple |
+| `Character` | refused | uses a `Character`: one grapheme cluster |
+| `Substring` | refused | shares its string's storage |
+| `(Int) -> Int` | refused | takes or returns a closure |
+| `inout Int` | refused | takes an `inout` parameter |
+| `Any`, `AnyObject` | refused | values of any type |
+| `Decimal` | refused | a decimal no JSON number keeps exactly |
+| `Date`, `Data`, `URL` | refused | uses the Foundation type |
+| `Point` | refused | uses the class `Point` |
+
+A parameter's default stays in the wrapper, which passes every argument, so the port's parameter
+is the plain type. Generic, `async` and `rethrows` functions, variadic parameters and `@objc`
+functions are refused, and so are methods and functions in an `extension`: a unit is a file's
+top-level functions.

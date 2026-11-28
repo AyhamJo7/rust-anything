@@ -26,7 +26,7 @@ use rust_anything::{
 #[command(
     name = "rust-anything",
     version,
-    about = "Rewrite TypeScript/JavaScript, Python, C, Go, Ruby, Java, Kotlin, PHP, C# or PowerShell apps in Rust, one verified piece at a time",
+    about = "Rewrite TypeScript/JavaScript, Python, C, Go, Ruby, Java, Kotlin, PHP, C#, PowerShell or Swift apps in Rust, one verified piece at a time",
     after_help = "Loop per unit: analyze -> bridge -> record -> port src/port.rs -> build -> diff -> shadow -> gate\nOnly the slow part: go --agent claude -- <workload>, then enable/disable and report"
 )]
 struct Cli {
@@ -406,7 +406,7 @@ enum Cmd {
         /// `<crate>/shadow/<name>.shadow.ts` (TypeScript), `<crate>/shadow/<name>_shadow.py`
         /// (Python), `<crate>/shadow/<name>_shadow.c` (C), `<crate>/go/shadow/<pkg>.go` (Go),
         /// `<crate>/ruby/<lib>_shadow.rb` (Ruby), and a folder, `<crate>/java/`, for Java and
-        /// Kotlin. PHP, C# and PowerShell have no shadow module yet and stop with an error.
+        /// Kotlin. PHP, C#, PowerShell and Swift have no shadow module yet and stop with an error.
         #[arg(long, short)]
         out: Option<PathBuf>,
     },

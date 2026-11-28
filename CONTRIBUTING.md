@@ -29,6 +29,7 @@ skip a part whose runtime is missing, so install the ones you touch:
 | PHP | PHP 8 |
 | C# | the .NET SDK |
 | PowerShell | PowerShell 7.4+ (`pwsh`) |
+| Swift | Xcode or a Swift 5.9+ toolchain (`swiftc`) |
 | wasm bridges | `rustup target add wasm32-unknown-unknown` and the matching `wasm-bindgen-cli` |
 
 ```sh
@@ -104,6 +105,9 @@ paths in what you commit. CI runs it on every file.
   - `tests/ruby_recording.rs`: Ruby results that cannot be encoded.
   - `tests/powershell.rs`: a PowerShell module bridged, recorded, diffed, gated and enabled;
     skipped without `pwsh` 7.4+.
+  - `tests/swift.rs`: a SwiftPM target bridged, recorded (an overflow trap and thrown errors
+    included), diffed and gated, with two wrong ports that must fail `diff`; skipped without
+    `swiftc`.
   - `tests/untyped_js_types.rs`: types for untyped JavaScript from JSDoc or a sibling declaration
     file.
   - `tests/android_device.rs`: on-device recording over adb; skipped without a device.

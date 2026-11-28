@@ -150,6 +150,7 @@ rust-anything doctor          # memeriksa runtime yang dibutuhkan versi asli And
 | PHP | Terverifikasi | PEAR `XML_Util` (1,838/1,838) |
 | Kotlin | Teruji | fixture repositori ini, termasuk Android |
 | PowerShell | Teruji | fixture repositori ini |
+| Swift | Teruji | fixture repositori ini |
 
 **Terverifikasi** berarti di-port dari ujung ke ujung pada kode nyata yang ditulis orang lain; **Teruji** berarti dicakup oleh tes repositori ini pada fixture. Setiap run, dengan tanggal dan cara pemeriksaannya: [STATUS.md](STATUS.md).
 

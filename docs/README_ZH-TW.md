@@ -148,6 +148,7 @@ rust-anything doctor          # 檢查原始程式需要的執行環境，並附
 | PHP | 已驗證 | PEAR `XML_Util` (1,838/1,838) |
 | Kotlin | 已測試 | 本儲存庫的測試 fixture，包括 Android |
 | PowerShell | 已測試 | 本儲存庫的測試 fixture |
+| Swift | 已測試 | 本儲存庫的測試 fixture |
 
 **已驗證** 指在別人寫的真實程式碼上完成了端到端移植；**已測試** 指由本儲存庫針對 fixture 的測試涵蓋。每次執行的日期和檢查方式：[STATUS.md](STATUS.md)。
 

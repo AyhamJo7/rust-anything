@@ -148,6 +148,7 @@ rust-anything doctor          # kiểm tra các runtime mà bản gốc cần, k
 | PHP | Đã xác minh | PEAR `XML_Util` (1,838/1,838) |
 | Kotlin | Đã kiểm thử | fixture của repo này, gồm cả Android |
 | PowerShell | Đã kiểm thử | fixture của repo này |
+| Swift | Đã kiểm thử | fixture của repo này |
 
 **Đã xác minh** nghĩa là đã port trọn vẹn trên code thật do người khác viết; **Đã kiểm thử** nghĩa là được bao phủ bởi test của repo này trên fixture. Mọi lần chạy, kèm ngày và cách kiểm tra: [STATUS.md](STATUS.md).
 

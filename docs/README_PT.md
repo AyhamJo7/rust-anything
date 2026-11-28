@@ -148,6 +148,7 @@ rust-anything doctor          # verifica os runtimes de que o seu original preci
 | PHP | Verificado | PEAR `XML_Util` (1,838/1,838) |
 | Kotlin | Testado | as fixtures deste repositório, incluindo Android |
 | PowerShell | Testado | as fixtures deste repositório |
+| Swift | Testado | as fixtures deste repositório |
 
 **Verificado** significa migrado de ponta a ponta em código real escrito por outra pessoa; **Testado** significa coberto pelos testes deste repositório em fixtures. Cada execução, com datas e a forma como foi verificada: [STATUS.md](STATUS.md).
 

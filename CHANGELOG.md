@@ -16,6 +16,15 @@
   `enable` is marked `"forced": true`. The file is only appended to. `rust-anything log <repo>`
   (`--json`, and the MCP `log` tool) reads it, and `map` has a "Last change" column.
 
+- Swift units: `analyze` reads SwiftPM packages (targets, `.package(url:)` dependencies mapped to
+  crates, SwiftUI/UIKit files set aside as UI) and flags Swift's traps, grapheme-counted strings
+  and `Double` formatting; `bridge`, `record`, `build`, `diff` and `gate` cover a file's top-level
+  functions with `String`, integer, `Double`, `Bool`, optional, array and `[String: T]` types and
+  `throws`. The generated `swift/<Crate>.swift` keeps each function's labels and defaults and
+  calls Rust through a C module map; `record` compiles a driver with `swiftc` and keeps an `Int`
+  overflow as a trap, which a port matches by panicking (Swift crates build with
+  `overflow-checks`). `doctor` checks for `swiftc`. No `shadow`, `--batch`, `bench` or `profile`
+  for Swift yet (#200).
 - `record` refuses to leave a secret in `cases.jsonl`. A recorded function that returned the
   value of an environment variable such as `API_TOKEN` or `DB_PASSWORD` wrote it into the file
   the workflow says to commit. When the recording holds the value (8 characters or more) of a

@@ -148,6 +148,7 @@ rust-anything doctor          # asl dasturingizga kerak bo'lgan runtime'larni te
 | PHP | Tasdiqlangan | PEAR `XML_Util` (1,838/1,838) |
 | Kotlin | Sinalgan | ushbu repozitoriyning fixture'lari, Android ham |
 | PowerShell | Sinalgan | ushbu repozitoriyning fixture'lari |
+| Swift | Sinalgan | ushbu repozitoriyning fixture'lari |
 
 **Tasdiqlangan** boshqa birov yozgan haqiqiy kodda boshidan oxirigacha portlangan degani; **Sinalgan** ushbu repozitoriyning fixture'lardagi testlari bilan qamrab olingan degani. Har bir ishga tushirish, sanalari va qanday tekshirilgani bilan: [STATUS.md](STATUS.md).
 

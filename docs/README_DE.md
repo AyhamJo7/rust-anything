@@ -148,6 +148,7 @@ rust-anything doctor          # prüft die Laufzeitumgebungen, die dein Original
 | PHP | Verifiziert | PEAR `XML_Util` (1,838/1,838) |
 | Kotlin | Getestet | Fixtures dieses Repositorys, einschließlich Android |
 | PowerShell | Getestet | Fixtures dieses Repositorys |
+| Swift | Getestet | Fixtures dieses Repositorys |
 
 **Verifiziert** heißt: durchgehend portiert, an echtem Code, den jemand anderes geschrieben hat; **Getestet** heißt: durch die Tests dieses Repositorys an Fixtures abgedeckt. Jeder Lauf, mit Datum und Prüfweise: [STATUS.md](STATUS.md).
 

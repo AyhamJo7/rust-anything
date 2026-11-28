@@ -74,6 +74,7 @@ impl std::fmt::Display for Version {
 /// The first `N[.N[.N]]` in a version banner (`v24.1.0`, `go version go1.22.3 ...`,
 /// `openjdk version "21.0.2"`, `ruby 2.6.10p210`).
 pub fn parse_version(text: &str) -> Option<Version> {
+    let text = text.find("Swift version ").map_or(text, |i| &text[i..]);
     let start = text.find(|c: char| c.is_ascii_digit())?;
     let mut parts = text[start..]
         .split(|c: char| !c.is_ascii_digit() && c != '.')
@@ -441,6 +442,19 @@ const RUNTIMES: &[Runtime] = &[
             "brew install powershell",
             "winget install Microsoft.PowerShell",
             "install PowerShell 7.4+ from https://aka.ms/install-powershell",
+        ],
+    },
+    Runtime {
+        name: "swiftc",
+        program: "swiftc",
+        args: &["--version"],
+        minimum: Some(Version(5, 9, 0)),
+        required: false,
+        java: false,
+        fix: [
+            "xcode-select --install",
+            "winget install Swift.Toolchain",
+            "install Swift 5.9+ from https://www.swift.org/install",
         ],
     },
     Runtime {
@@ -1177,6 +1191,10 @@ mod tests {
             ("javac 17", Version(17, 0, 0)),
             ("PHP 8.3.4 (cli) (built: Mar 12 2024)", Version(8, 3, 4)),
             ("PowerShell 7.7.0", Version(7, 7, 0)),
+            (
+                "swift-driver version: 1.168.6 Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9)",
+                Version(6, 4, 2),
+            ),
             ("cargo 1.97.0 (abcdef 2026-01-01)", Version(1, 97, 0)),
             ("8.0.100", Version(8, 0, 100)),
         ];
@@ -1561,6 +1579,7 @@ mod tests {
             ("javac", "JDK"),
             ("php", "PHP"),
             ("pwsh", "PowerShell"),
+            ("swiftc", "Swift"),
         ];
         for r in RUNTIMES.iter().filter(|r| r.minimum.is_some()) {
             assert!(

@@ -153,6 +153,7 @@ rust-anything doctor          # checks the runtimes your original needs, with th
 | PHP | Verified | PEAR `XML_Util` (1,838/1,838) |
 | Kotlin | Tested | this repository's fixtures, including Android |
 | PowerShell | Tested | this repository's fixtures |
+| Swift | Tested | this repository's fixtures |
 
 **Verified** means ported end to end on real code someone else wrote; **Tested** means covered by this repository's tests on fixtures. Every run, with dates and how it was checked: [docs/STATUS.md](docs/STATUS.md).
 

@@ -148,6 +148,7 @@ rust-anything doctor          # comprueba los runtimes que necesita tu original,
 | PHP | Verificado | PEAR `XML_Util` (1,838/1,838) |
 | Kotlin | Probado | los fixtures de este repositorio, incluido Android |
 | PowerShell | Probado | los fixtures de este repositorio |
+| Swift | Probado | los fixtures de este repositorio |
 
 **Verificado** significa portado de principio a fin sobre código real escrito por otra persona; **Probado** significa cubierto por los tests de este repositorio sobre fixtures. Cada ejecución, con fechas y cómo se comprobó: [STATUS.md](STATUS.md).
 

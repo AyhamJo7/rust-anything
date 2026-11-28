@@ -22,6 +22,7 @@ front door); units cannot be bridged yet.
 | PHP | Verified | PEAR `XML_Util` 1.4.5 behind a facade (2026-11-22) | 1,838/1,838; gate passes. Top-level functions with scalar, string, list and assoc-array parameters, through `ext-ffi`; static methods, classes, objects, references, variadics, callables and generators stay in PHP with the reason; no `shadow`, no `--batch` |
 | PowerShell | Tested | none | `analyze`, bridge, record, build, diff, gate, `enable` and `disable` on a `.psm1` fixture (`tests/powershell.rs`, PowerShell 7.7 on macOS; CI runs it with `pwsh` on Linux and Windows). Functions with string, integer, double, bool/switch, array, hashtable and untyped parameters; filters, `process` blocks, pipeline input, script blocks, `[ref]` and other .NET types stay in PowerShell with the reason; no `shadow`, no `--batch`, no `profile` |
 | C# | Verified | Google.Protobuf 3.29.0's `CodedOutputStream.ComputeSize.cs` (2026-11-22) | 16 public static methods (6 kept in C#), 2,941/2,941 with 2 lone-surrogate cases listed in `known-diffs.jsonl`; gate passes. Records and POCOs as arguments, defaults, nullable, lists and dictionaries, and nested (`+`) exception types are tested on a fixture (`tests/loop.rs`); `shadow` and `--batch` are not available for C#; needs `dotnet` on PATH, so CI skips it |
+| Swift | Tested | none | `analyze`, bridge, record, build, diff and gate on a SwiftPM fixture (`tests/swift.rs`, Swift 6.4 on macOS arm64; not yet run on Linux or Windows). Top-level functions with `String`, integer, `Double`/`Float`, `Bool`, optional, array and `[String: T]` parameters and results, and `throws`: thrown errors are compared by type and `String(describing:)`, and an `Int` overflow is recorded as a trap and matched by a port that panics (the crate builds with `overflow-checks`). A port counting `chars()` where Swift counts graphemes, and one using `wrapping_add`, both fail `diff`. Methods, extensions, closures, `inout`, generics, `async`, `Set` and project types stay in Swift with the reason; printed output is not captured; no `shadow`, `--batch`, `bench` or `profile`; skipped without `swiftc` |
 
 Details of every run: [real-world.md](real-world.md) (TS/JS) and
 [real-world-languages.md](real-world-languages.md) (the others).
@@ -31,7 +32,7 @@ Details of every run: [real-world.md](real-world.md) (TS/JS) and
 | Command | Status | Notes |
 | --- | --- | --- |
 | `analyze` | Verified | every language above, x18n's 142 units |
-| `bridge`, `record`, `diff`, `gate`, `build` | Verified | the runs above; `bridge --as-json` on json-server's `paginate`; PHP and C# units in `tests/loop.rs` (skipped without `php` with FFI or without `dotnet`), PowerShell units in `tests/powershell.rs` (skipped without `pwsh` 7.4+) |
+| `bridge`, `record`, `diff`, `gate`, `build` | Verified | the runs above; `bridge --as-json` on json-server's `paginate`; PHP and C# units in `tests/loop.rs` (skipped without `php` with FFI or without `dotnet`), PowerShell units in `tests/powershell.rs` (skipped without `pwsh` 7.4+), Swift units in `tests/swift.rs` (skipped without `swiftc`) |
 | `build --profile android` | Tested | Kotlin fixture, one ABI per test run (all three built by hand), entry points and 16 KB alignment checked; `armeabi-v7a` library loaded on an Android 11 TV and called through JNI |
 | `record`/`diff --profile android` | Tested | Kotlin fixture on an Android 11 TV: record 291 cases under ART, then diff against the Android `.so` (12 of them did not match yet, not investigated); guarded test `tests/android_device.rs` skips without a device |
 | Types for untyped JS in `bridge` and `analyze` (sibling `.d.ts`/`.d.mts`/`.d.cts`, then JSDoc) | Tested | `tests/untyped_js_types.rs`; `analyze` uses `bridge`'s rules; tested there with a `.d.ts`, a class method and an alias (`tests/analyze.rs`) |
@@ -89,7 +90,7 @@ prints what to use instead.
 | PHP | yes | yes (`php -S` front door) | JSON dispatcher over `ext-ffi` | yes (`php` with FFI) | no | no | no (SPX or Xdebug) | no |
 | C# | yes | yes (ASP.NET) | JSON dispatcher over P/Invoke | yes (`dotnet` on PATH) | no | no | no (`dotnet-trace`) | no |
 | C++ | no | yes (any program: `app record`/`app replay`) | no | no | no | no | no | no |
-| Swift | no | yes (any program: `app record`/`app replay`) | no | no | no | no | no | no |
+| Swift | yes | yes (any program: `app record`/`app replay`) | JSON dispatcher over the C ABI (module map) | yes (`swiftc` on PATH) | no | no | no (Instruments) | no |
 | Dart | no | yes (any program: `app record`/`app replay`) | no | no | no | no | no | no |
 | PowerShell | yes | yes (any program: `app record`/`app replay`) | JSON dispatcher over P/Invoke (Reflection.Emit) | yes (`pwsh` 7.4+) | no | yes | no (`Measure-Command`; start-up first) | no |
 | CUDA | no | yes (any program: `app record`/`app replay`) | no | no | no | no | no | no |
@@ -101,9 +102,9 @@ switches TS/JS, Python and PowerShell ports in place and points everything else 
 
 Where the cells come from: entry points in `whole_app.rs`, the unit-bridge guard in `lang/mod.rs`,
 the per-shape branches in `shadow.rs`, `enable.rs`'s `is_supported`, `profile.rs`'s alternatives for
-C, Kotlin, PHP, C# and PowerShell, and `package.rs`'s layout match.
+C, Kotlin, PHP, C#, PowerShell and Swift, and `package.rs`'s layout match.
 
-C++, Swift, Dart, CUDA and Assembly have no adapter yet, so `analyze` does not read their source; their
+C++, Dart, CUDA and Assembly have no adapter yet, so `analyze` does not read their source; their
 programs still run through the whole-app flow, which compares any runnable program's output.
 CMake is read only as part of C project discovery. Requested in #200, where the order is tracked.
 `go` needs `profile`, so it runs where `profile` does.
@@ -113,6 +114,7 @@ CMake is read only as part of C project discovery. Requested in #200, where the 
 CI installs Node, Python, Go, Ruby and Java on macOS and Windows, and runs the PowerShell tests
 with `pwsh` on Linux, macOS and Windows (installed when the runner image lacks it). It does not
 install PHP, .NET, Kotlin, the Android NDK or an Android device, so the PHP, C#, Kotlin and Android
-tests skip there and run only on a machine that has them. The Windows job runs only the
+tests skip there and run only on a machine that has them. `tests/swift.rs` runs wherever `swiftc`
+is on PATH (GitHub's macOS images ship Xcode); it has been run on macOS arm64 only. The Windows job runs only the
 `app::tests::shell_words` unit tests and the `analyze`, `diff_missing_folder`, `doctor` and `native`
 suites; the rest of `cargo test` runs on Ubuntu and macOS.

@@ -148,6 +148,7 @@ rust-anything doctor          # asyl programmaňyza gerek bolan işleýiş gurş
 | PHP | Tassyklanan | PEAR `XML_Util` (1,838/1,838) |
 | Kotlin | Synalan | bu repozitoriýiň fixture-leri, Android hem goşulyp |
 | PowerShell | Synalan | bu repozitoriýiň fixture-leri |
+| Swift | Synalan | bu repozitoriýiň fixture-leri |
 
 **Tassyklanan** başga biriniň ýazan hakyky kodunda başdan-aýak portlanandygyny aňladýar; **Synalan** bu repozitoriýiň fixture-lerdäki testleri bilen gurşalandygyny aňladýar. Her işletme, senesi we nähili barlanandygy bilen: [STATUS.md](STATUS.md).
 

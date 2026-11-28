@@ -479,6 +479,8 @@ pub(crate) fn record_with(
         crate::harness_csharp::record(opts.crate_dir, manifest, cases, sandbox)?
     } else if manifest.language == crate::lang::Lang::Powershell {
         crate::harness_powershell::record(opts.crate_dir, manifest, cases, sandbox)?
+    } else if manifest.language == crate::lang::Lang::Swift {
+        crate::harness_swift::record(opts.crate_dir, manifest, cases, sandbox)?
     } else if manifest.language == crate::lang::Lang::Java {
         crate::harness_java::record(opts.crate_dir, manifest, cases, sandbox)?
     } else if manifest.language == crate::lang::Lang::Kotlin {
@@ -731,6 +733,16 @@ pub(crate) fn ensure_built(crate_dir: &Path, manifest: &Manifest) -> Result<()> 
                 crate_dir.display()
             );
         }
+        Kind::Ffi
+            if manifest.language == crate::lang::Lang::Swift
+                && crate::harness_swift::built_file(crate_dir, manifest).is_none() =>
+        {
+            bail!(
+                "no built library in {} (run `rust-anything build {}` first)",
+                crate_dir.join("swift").display(),
+                crate_dir.display()
+            );
+        }
         _ => {}
     }
     Ok(())
@@ -750,6 +762,9 @@ fn stale_build(crate_dir: &Path, manifest: &Manifest) -> Option<PathBuf> {
         }
         Kind::Ffi if manifest.language == crate::lang::Lang::Powershell => {
             crate::harness_powershell::built_file(crate_dir, manifest)?
+        }
+        Kind::Ffi if manifest.language == crate::lang::Lang::Swift => {
+            crate::harness_swift::built_file(crate_dir, manifest)?
         }
         _ => return None,
     };
@@ -813,6 +828,9 @@ pub fn build(crate_dir: &Path) -> Result<PathBuf> {
         }
         Kind::Ffi if manifest.language == crate::lang::Lang::Powershell => {
             crate::harness_powershell::build(crate_dir, &manifest)
+        }
+        Kind::Ffi if manifest.language == crate::lang::Lang::Swift => {
+            crate::harness_swift::build(crate_dir, &manifest)
         }
         Kind::CAbi | Kind::Ffi => crate::harness_c::build(crate_dir, &manifest),
         Kind::Napi => {
@@ -1117,6 +1135,9 @@ fn time_functions(opts: &BenchOptions) -> Result<Vec<BenchRow>> {
     if manifest.language == crate::lang::Lang::Powershell {
         return crate::harness_powershell::bench(opts.crate_dir, &manifest, opts.min_ms);
     }
+    if manifest.language == crate::lang::Lang::Swift {
+        return crate::harness_swift::bench(opts.crate_dir, &manifest, opts.min_ms);
+    }
     if manifest.language == crate::lang::Lang::Java {
         return crate::harness_java::bench(opts.crate_dir, &manifest, opts.min_ms);
     }
@@ -1419,6 +1440,12 @@ pub(crate) fn diff_exact(opts: &DiffOptions) -> Result<DiffOutcome> {
         && opts.module.is_none()
     {
         return crate::harness_powershell::diff(opts.crate_dir, &manifest);
+    }
+    if let Ok(manifest) = Manifest::load(opts.crate_dir)
+        && manifest.language == crate::lang::Lang::Swift
+        && opts.module.is_none()
+    {
+        return crate::harness_swift::diff(opts.crate_dir, &manifest);
     }
     if let Ok(manifest) = Manifest::load(opts.crate_dir)
         && manifest.language == crate::lang::Lang::Java
@@ -2108,7 +2135,7 @@ impl Rng {
 
 /// How long one recorded case may run before the original is stopped on it:
 /// `RUST_ANYTHING_CASE_TIMEOUT` seconds, 10 by default.
-fn case_timeout() -> std::time::Duration {
+pub(crate) fn case_timeout() -> std::time::Duration {
     std::env::var("RUST_ANYTHING_CASE_TIMEOUT")
         .ok()
         .and_then(|v| v.parse::<f64>().ok())
@@ -2228,6 +2255,12 @@ pub(crate) fn record_cases(
 pub(crate) const TIMED_OUT: &str = "timed-out.json";
 
 pub(crate) struct Scratch(PathBuf);
+
+impl Scratch {
+    pub(crate) fn path(&self) -> &Path {
+        &self.0
+    }
+}
 
 impl Drop for Scratch {
     fn drop(&mut self) {

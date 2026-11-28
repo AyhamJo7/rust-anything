@@ -148,6 +148,7 @@ rust-anything doctor          # orijinalınızın ehtiyac duyduğu runtime-ları
 | PHP | Təsdiqlənib | PEAR `XML_Util` (1,838/1,838) |
 | Kotlin | Test edilib | bu repozitoriyanın fixture-ləri, Android daxil |
 | PowerShell | Test edilib | bu repozitoriyanın fixture-ləri |
+| Swift | Test edilib | bu repozitoriyanın fixture-ləri |
 
 **Təsdiqlənib** başqasının yazdığı real kod üzərində başdan-sona portlanıb deməkdir; **Test edilib** bu repozitoriyanın fixture-lər üzərindəki testləri ilə əhatə olunub deməkdir. Hər icra, tarixləri və necə yoxlandığı ilə: [STATUS.md](STATUS.md).
 

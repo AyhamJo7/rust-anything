@@ -65,6 +65,8 @@ pub enum Bridge {
     DotnetFfi,
     /// PowerShell through P/Invoke over a C ABI, declared at run time with Reflection.Emit.
     PwshFfi,
+    /// Swift through a C module map over a C ABI.
+    SwiftFfi,
 }
 
 impl Bridge {
@@ -81,6 +83,7 @@ impl Bridge {
             Self::PhpFfi => "PHP FFI (C ABI)",
             Self::DotnetFfi => "P/Invoke (C ABI)",
             Self::PwshFfi => "PowerShell P/Invoke (C ABI)",
+            Self::SwiftFfi => "Swift module map (C ABI)",
         }
     }
 
@@ -96,6 +99,7 @@ impl Bridge {
             Lang::Php => Self::PhpFfi,
             Lang::Csharp => Self::DotnetFfi,
             Lang::Powershell => Self::PwshFfi,
+            Lang::Swift => Self::SwiftFfi,
         }
     }
 }

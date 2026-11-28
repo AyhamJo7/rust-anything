@@ -148,6 +148,7 @@ rust-anything doctor          # orijinalinizin ihtiyaç duyduğu çalışma orta
 | PHP | Doğrulandı | PEAR `XML_Util` (1,838/1,838) |
 | Kotlin | Test edildi | bu reponun fixture'ları, Android dahil |
 | PowerShell | Test edildi | bu reponun fixture'ları |
+| Swift | Test edildi | bu reponun fixture'ları |
 
 **Doğrulandı**, başkasının yazdığı gerçek kod üzerinde baştan sona port edildi demektir; **Test edildi**, bu reponun fixture'lar üzerindeki testleriyle kapsandı demektir. Her çalıştırma, tarihleri ve nasıl kontrol edildiğiyle: [STATUS.md](STATUS.md).
 

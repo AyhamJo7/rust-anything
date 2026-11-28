@@ -29,6 +29,7 @@ pub mod codegen_php;
 pub mod codegen_powershell;
 pub mod codegen_py;
 pub mod codegen_ruby;
+pub mod codegen_swift;
 pub mod codegen_tswire;
 pub mod crates;
 pub mod doctor;
@@ -52,6 +53,7 @@ pub mod harness_php;
 pub mod harness_powershell;
 pub mod harness_py;
 pub mod harness_ruby;
+pub mod harness_swift;
 pub mod http;
 #[cfg(test)]
 mod js_number;

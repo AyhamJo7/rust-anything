@@ -171,8 +171,8 @@ pub fn handle(request: &Value) -> Option<Value> {
                 "extensions": { "io.modelcontextprotocol/skills": {} },
             },
             "serverInfo": { "name": "rust-anything", "version": env!("CARGO_PKG_VERSION") },
-            "instructions": "Rewrite TypeScript/JavaScript, Python, C, Go, Ruby, Java, Kotlin, PHP, C# or \
-                PowerShell apps in Rust, one verified piece at a time. Loop per unit: analyze -> bridge -> \
+            "instructions": "Rewrite TypeScript/JavaScript, Python, C, Go, Ruby, Java, Kotlin, PHP, C#, \
+                PowerShell or Swift apps in Rust, one verified piece at a time. Loop per unit: analyze -> bridge -> \
                 record -> (port src/port.rs) -> build -> diff -> shadow -> gate. Never mark a port done \
                 before gate passes. Read rust/RULES.md (`rules`) before porting; when the user corrects \
                 behavior, add it with `rules`.",
@@ -503,10 +503,10 @@ fn tool_schemas() -> Value {
     json!([
         {
             "name": "analyze",
-            "description": "Map a repository (TypeScript/JavaScript, Python, C, Go, Ruby, Java, Kotlin, PHP, C# or PowerShell): units, port order (waves), risks with file:line, bridge per unit, dependency-to-crate fit, and `start_here`: the best first ports.",
+            "description": "Map a repository (TypeScript/JavaScript, Python, C, Go, Ruby, Java, Kotlin, PHP, C#, PowerShell or Swift): units, port order (waves), risks with file:line, bridge per unit, dependency-to-crate fit, and `start_here`: the best first ports.",
             "inputSchema": { "type": "object", "properties": {
                 "root": { "type": "string", "description": "Repository root." },
-                "lang": { "type": "string", "enum": ["ts", "python", "c", "go", "ruby", "java", "kotlin", "php", "csharp", "powershell"], "description": "Source language; detected from the repository when omitted." },
+                "lang": { "type": "string", "enum": ["ts", "python", "c", "go", "ruby", "java", "kotlin", "php", "csharp", "powershell", "swift"], "description": "Source language; detected from the repository when omitted." },
                 "whole_app": { "type": "boolean", "description": "Plan a whole-app port: entry points and shape (cli, server, library), every dependency imported or declared with its crate and fit, pieces in port order (units that import each other together), and numbered decisions with a recommended answer for the grilling round." },
             }, "required": ["root"] },
         },
@@ -641,7 +641,7 @@ fn tool_schemas() -> Value {
         },
         {
             "name": "fuzz",
-            "description": "Live differential test: generate fresh inputs from a new seed (the record generator, without the cases already recorded), run them through the original and the built port, and report mismatches the recording missed. Returns the seed to replay, counts and the first mismatches; `keep` appends mismatching (or all) fresh cases to cases.jsonl so the next diff and gate check them. Works wherever record and diff do on this machine (TS/JS, Python, C, Go, Ruby, Java, Kotlin, PHP, C#, PowerShell).",
+            "description": "Live differential test: generate fresh inputs from a new seed (the record generator, without the cases already recorded), run them through the original and the built port, and report mismatches the recording missed. Returns the seed to replay, counts and the first mismatches; `keep` appends mismatching (or all) fresh cases to cases.jsonl so the next diff and gate check them. Works wherever record and diff do on this machine (TS/JS, Python, C, Go, Ruby, Java, Kotlin, PHP, C#, PowerShell, Swift).",
             "inputSchema": { "type": "object", "properties": {
                 "crate": crate_dir,
                 "cases": { "type": "integer", "description": "Fresh cases per function (and scenarios per class) in each round (default 200)." },
@@ -1438,7 +1438,7 @@ mod tests {
         );
         assert_eq!(
             instructions,
-            "Rewrite TypeScript/JavaScript, Python, C, Go, Ruby, Java, Kotlin, PHP, C# or PowerShell apps in Rust, one verified piece at a time. Loop per unit: analyze -> bridge -> record -> (port src/port.rs) -> build -> diff -> shadow -> gate. Never mark a port done before gate passes. Read rust/RULES.md (`rules`) before porting; when the user corrects behavior, add it with `rules`."
+            "Rewrite TypeScript/JavaScript, Python, C, Go, Ruby, Java, Kotlin, PHP, C#, PowerShell or Swift apps in Rust, one verified piece at a time. Loop per unit: analyze -> bridge -> record -> (port src/port.rs) -> build -> diff -> shadow -> gate. Never mark a port done before gate passes. Read rust/RULES.md (`rules`) before porting; when the user corrects behavior, add it with `rules`."
         );
     }
 

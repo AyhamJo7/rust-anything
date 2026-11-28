@@ -148,6 +148,7 @@ rust-anything doctor          # controlla i runtime di cui ha bisogno il tuo ori
 | PHP | Verificato | PEAR `XML_Util` (1,838/1,838) |
 | Kotlin | Testato | le fixture di questo repository, Android incluso |
 | PowerShell | Testato | le fixture di questo repository |
+| Swift | Testato | le fixture di questo repository |
 
 **Verificato** significa portato da cima a fondo su codice reale scritto da altri; **Testato** significa coperto dai test di questo repository su fixture. Ogni esecuzione, con date e modalità di controllo: [STATUS.md](STATUS.md).
 
