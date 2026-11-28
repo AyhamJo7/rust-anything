@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `gate` on a unit crate that `app lift` has made part of a pure Rust app runs the checks that
+  still apply (fmt, clippy, tests, unsafe, lockfile, advisories, ported) and adds a `lifted` line
+  saying the recorded cases are checked by `app replay`. It used to fail `api` and `behavior`
+  because the bindings `lift` removes are what it compared through (#914, #915 by @AyhamJo7).
 - `app lift` no longer fails its `cargo test` check on a recording made with `--db-reset`.
   trycmd cannot run the command that resets state before each case, so the generated
   `rust/app/tests/app_cases.rs` is kept but ignored (with the reason), and the `replay in CI`
