@@ -471,6 +471,7 @@ pub fn resolve(from: &str, spec: &str, index: &HashMap<&str, usize>, ws: &Worksp
     // found before any path is searched, so a sibling `sys.py` never answers `import sys`.
     if !BUILT_IN.contains(&segments[0])
         && let Some((dir, _)) = from.rsplit_once('/')
+        && !in_package(dir, index)
         && let Some(i) = try_module(&format!("{dir}/{path}"))
     {
         return Resolution::File(i);
@@ -514,6 +515,10 @@ const BUILT_IN: &[&str] = &[
     "_thread",
 ];
 
+fn in_package(dir: &str, index: &HashMap<&str, usize>) -> bool {
+    index.contains_key(format!("{dir}/__init__.py").as_str())
+}
+
 /// The workspace's own `<top>.py` in some other folder, for an import no root and no sibling
 /// answered: the file when there is one, unresolved when several share the name. A name the
 /// crate table knows stays the library.
@@ -526,6 +531,11 @@ fn module_elsewhere(top: &str, index: &HashMap<&str, usize>) -> Option<Resolutio
     let mut found = index
         .iter()
         .filter(|(path, _)| **path == file || path.ends_with(&nested))
+        .filter(|(path, _)| {
+            !path
+                .rsplit_once('/')
+                .is_some_and(|(dir, _)| in_package(dir, index))
+        })
         .map(|(_, i)| *i);
     let first = found.next()?;
     Some(match found.next() {
@@ -1573,7 +1583,19 @@ mod tests {
             ("tools/yaml.py", 5),
             ("hooks/sys.py", 6),
             ("hooks/json.py", 7),
+            ("app/__init__.py", 8),
+            ("app/redis.py", 9),
+            ("app/core.py", 10),
+            ("app/boltons.py", 11),
         ]);
+        match resolve("app/core.py", "redis", &index, &ws) {
+            Resolution::External(name) => assert_eq!(name, "redis"),
+            _ => panic!("redis in a package: not external"),
+        }
+        match resolve("hooks/stop_guard.py", "boltons", &index, &ws) {
+            Resolution::External(name) => assert_eq!(name, "boltons"),
+            _ => panic!("boltons: not external"),
+        }
         // A module compiled into the interpreter is found before `sys.path` is searched; any
         // other standard-library module is a file, and the script's sibling comes first.
         assert!(matches!(
