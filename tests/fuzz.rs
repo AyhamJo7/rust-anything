@@ -231,3 +231,49 @@ fn a_negative_or_nan_time_names_the_range_and_the_value() {
         );
     }
 }
+
+#[test]
+fn unsupported_bridge_names_the_language_and_the_bridge_in_words() {
+    fn error_for(language: &str, kind: &str) -> String {
+        let dir = std::env::temp_dir().join(format!(
+            "pin-message-{}-{language}-{kind}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let manifest = serde_json::json!({
+            "schema": "1",
+            "root": dir,
+            "unit": "add",
+            "language": language,
+            "kind": kind,
+            "crate_name": "add-rs",
+            "exports": [],
+        });
+        std::fs::write(
+            dir.join(rust_anything::bridge::MANIFEST),
+            manifest.to_string(),
+        )
+        .unwrap();
+        let err = rust_anything::pin::set(&dir, true).unwrap_err().to_string();
+        let _ = std::fs::remove_dir_all(&dir);
+        err
+    }
+
+    let wasm = error_for("ts", "wasm");
+    assert!(
+        wasm.contains("this crate is TypeScript/JavaScript with the wasm-bindgen bridge"),
+        "{wasm}"
+    );
+
+    let ffi = error_for("go", "ffi");
+    assert!(
+        ffi.contains("this crate is Go with a JSON dispatcher bridge"),
+        "{ffi}"
+    );
+
+    let c_abi = error_for("c", "c-abi");
+    assert!(
+        c_abi.contains("this crate is C with the C ABI bridge"),
+        "{c_abi}"
+    );
+}

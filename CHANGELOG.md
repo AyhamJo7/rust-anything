@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `record --pin-clock` on a unit it does not cover names the language and the bridge in words
+  (`this crate is TypeScript/JavaScript with the wasm-bindgen bridge`), not by their Rust names
+  (`Ts with the Wasm bridge`) (#850, #865 by @jay23606).
 - `doctor` checks for the Android SDK's `d8` and `android.jar` (an optional "Android build-tools"
   line, also in `doctor --json`), which `record --profile android` needs on a device. A machine
   without them passed `doctor` and failed at record time (#843, #863 by @jay23606).

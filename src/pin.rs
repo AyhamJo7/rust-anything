@@ -75,11 +75,15 @@ pub fn set(crate_dir: &Path, on: bool) -> Result<Option<PathBuf>> {
     }
     let manifest = Manifest::load(crate_dir)?;
     if !supported(&manifest) {
+        let label = manifest.kind.label();
+        let bridge = match manifest.kind {
+            Kind::CAbi | Kind::Ffi => label.to_owned(),
+            Kind::Napi | Kind::Wasm | Kind::Pyo3 => format!("the {label}"),
+        };
         bail!(
-            "`--pin-clock` covers TS/JS units with the napi bridge and Python units; this crate is \
-             {:?} with the {:?} bridge",
-            manifest.language,
-            manifest.kind
+            "`--pin-clock` covers TS/JS units with the napi bridge and Python units; this crate is {} with {} bridge",
+            manifest.language.name(),
+            bridge
         );
     }
     let pin = load(crate_dir)?.unwrap_or_default();
