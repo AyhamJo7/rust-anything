@@ -264,7 +264,9 @@ fn pyo3_path_bridge_takes_and_returns_pathlib_paths() {
                  def same(file: Path) -> Path:\n\
                  \x20   return file\n\n\n\
                  def maybe(file: Path | None) -> Path | None:\n\
-                 \x20   return file\n",
+                 \x20   return file\n\n\n\
+                 def tagged(info: dict) -> dict:\n\
+                 \x20   return info\n",
             ),
         ],
     );
@@ -329,6 +331,7 @@ fn pyo3_path_bridge_takes_and_returns_pathlib_paths() {
         ),
         ("same", "Ok(file)"),
         ("maybe", "Ok(file)"),
+        ("tagged", "Ok(info)"),
     ] {
         let start = port.find(&format!("pub fn {name}(")).unwrap();
         let open = start + port[start..].find('{').unwrap();
@@ -367,6 +370,8 @@ fn pyo3_path_bridge_takes_and_returns_pathlib_paths() {
              if os.name == 'posix':\n\
              \x20   odd = Path(os.fsdecode(b'bad-\\xff.txt'))\n\
              \x20   assert m.same(odd) == odd, m.same(odd)\n\
+             \x20   assert m.tagged({'file': odd}) == {'file': odd}\n\
+             assert m.tagged({'file': Path('a.txt')}) == {'file': Path('a.txt')}\n\
              try:\n\
              \x20   m.stem_of('a.txt')\n\
              except TypeError as error:\n\

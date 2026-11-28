@@ -785,8 +785,12 @@ pub fn from_py(obj: &Bound<'_, PyAny>) -> Result<Value, String> {
     if let Some(bytes) = extract_bytes(obj) {
         return Ok(json!({"$bytes": bytes?}));
     }
-    if let Some(path) = extract_path(obj) {
-        return Ok(json!({"$path": path}));
+    if let Some(bytes) = path_bytes(obj) {
+        // The path's text; a name that is not UTF-8 keeps its bytes instead.
+        return Ok(match String::from_utf8(bytes) {
+            Ok(text) => json!({"$path": text}),
+            Err(not_utf8) => json!({"$path": {"$bytes": not_utf8.into_bytes()}}),
+        });
     }
     Err(type_error(obj))
 }
@@ -802,13 +806,20 @@ fn path_bytes(obj: &Bound<'_, PyAny>) -> Option<Vec<u8>> {
     Some(encoded.cast::<PyBytes>().ok()?.as_bytes().to_vec())
 }
 
-/// The text of an `os.PathLike` object, for a path inside a JSON value.
-fn extract_path(obj: &Bound<'_, PyAny>) -> Option<String> {
-    path_bytes(obj).map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
-}
-
 fn new_path(py: Python<'_>, text: &str) -> PyResult<Py<PyAny>> {
     Ok(py.import("pathlib")?.getattr("Path")?.call1((text,))?.unbind())
+}
+
+/// The path a `$path` marker stands for: its text, or `{"$bytes": [...]}` for a name that is
+/// not UTF-8.
+fn marked_path(py: Python<'_>, inner: &Value) -> PyResult<Py<PyAny>> {
+    match inner.get("$bytes").and_then(Value::as_array) {
+        Some(bytes) => {
+            let bytes: Vec<u8> = bytes.iter().filter_map(|b| b.as_u64()).map(|b| b as u8).collect();
+            path_to_py(py, &path_from_bytes(bytes))
+        }
+        None => new_path(py, inner.as_str().unwrap_or_default()),
+    }
 }
 
 #[cfg(unix)]
@@ -1043,7 +1054,7 @@ pub fn to_py(py: Python<'_>, v: &Value) -> PyResult<Py<PyAny>> {
                     let bytes: Vec<u8> = items().iter().filter_map(|b| b.as_u64()).map(|b| b as u8).collect();
                     PyBytes::new(py, &bytes).into_any().unbind()
                 }
-                "$path" => new_path(py, inner.as_str().unwrap_or_default())?,
+                "$path" => marked_path(py, inner)?,
                 "$int" => py
                     .import("builtins")?
                     .getattr("int")?

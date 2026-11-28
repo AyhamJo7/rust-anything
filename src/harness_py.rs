@@ -265,9 +265,13 @@ def enc(v, stack=()):
     if isinstance(v, os.PathLike):
         # A path is its text: two different paths must not record as the same value. A name the
         # file system could not decode holds surrogates, which the UTF-8 cases file cannot store:
-        # those are written as backslash escapes, the same way for the original and the port.
+        # that one is recorded by its bytes.
         text = os.fsdecode(v)
-        return {"$path": text.encode("utf-8", "backslashreplace").decode("utf-8")}
+        try:
+            text.encode("utf-8")
+        except UnicodeEncodeError:
+            return {"$path": {"$bytes": list(os.fsencode(v))}}
+        return {"$path": text}
     if any(v is s for s in stack):
         return {"$cycle": True}
     stack = stack + (v,)
@@ -310,6 +314,8 @@ def dec(v):
         if key == "$bytes":
             return bytes(inner)
         if key == "$path":
+            if isinstance(inner, dict):
+                return pathlib.Path(os.fsdecode(bytes(inner["$bytes"])))
             return pathlib.Path(inner)
         if key == "$dict":
             return {dec(k): dec(x) for k, x in inner}
