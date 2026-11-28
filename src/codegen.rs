@@ -1376,6 +1376,13 @@ pub fn required_deps(kind: Kind, api: &PortApi) -> Vec<(&'static str, String)> {
     deps
 }
 
+/// The cargo feature that compiles a PyO3 crate's `#[pymodule]`. On by default, so the crate
+/// builds as a Python extension; a front door that links several units into one binary turns it
+/// off (`default-features = false`), since every module defines the same `PyInit__native`.
+pub const PYTHON_MODULE: &str = "python-module";
+const PYTHON_MODULE_FEATURE: &str =
+    "\n[features]\ndefault = [\"python-module\"]\npython-module = []\n";
+
 pub fn cargo_toml(m: &Manifest, api: &PortApi) -> String {
     let deps: String = required_deps(m.kind, api)
         .iter()
@@ -1383,6 +1390,8 @@ pub fn cargo_toml(m: &Manifest, api: &PortApi) -> String {
         .collect();
     let build = if m.kind == Kind::Napi {
         "\n[build-dependencies]\nnapi-build = \"2\"\n"
+    } else if m.kind == Kind::Pyo3 {
+        PYTHON_MODULE_FEATURE
     } else {
         ""
     };
@@ -1418,7 +1427,32 @@ pub fn ensure_deps(cargo: &str, kind: Kind, api: &PortApi) -> Result<String, Str
             Some(_) => {}
         }
     }
+    if kind == Kind::Pyo3 {
+        add_python_module_feature(&mut doc)?;
+    }
     Ok(doc.to_string())
+}
+
+/// A crate made before the feature existed gets it, on by default: its regenerated `lib.rs`
+/// gates the module on it, and without it the crate would build with no module at all.
+fn add_python_module_feature(doc: &mut toml_edit::DocumentMut) -> Result<(), String> {
+    let features = doc
+        .entry("features")
+        .or_insert_with(|| toml_edit::Item::Table(toml_edit::Table::new()))
+        .as_table_mut()
+        .ok_or("Cargo.toml: [features] is not a table")?;
+    if !features.contains_key(PYTHON_MODULE) {
+        features.insert(PYTHON_MODULE, toml_edit::value(toml_edit::Array::new()));
+    }
+    let default = features
+        .entry("default")
+        .or_insert_with(|| toml_edit::value(toml_edit::Array::new()))
+        .as_array_mut()
+        .ok_or("Cargo.toml: `default` features is not a list")?;
+    if !default.iter().any(|f| f.as_str() == Some(PYTHON_MODULE)) {
+        default.push(PYTHON_MODULE);
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1563,6 +1597,27 @@ mod tests {
         assert_eq!(wire("Vec<serde_json::Value>"), Wire::Json);
         assert_eq!(wire("Vec<bool>"), Wire::Json);
         assert_eq!(wire("Vec<u16>"), Wire::Units);
+    }
+
+    #[test]
+    fn a_python_crate_gets_the_module_feature_and_an_older_one_is_given_it() {
+        let fns = parse_port("/// Port of `a`.\npub fn a(x: String) -> String {\n    x\n}\n");
+        let older = "[package]\nname = \"x\"\n\n[dependencies]\n";
+        let out = ensure_deps(older, Kind::Pyo3, &fns).unwrap();
+        assert!(out.contains("[features]") && out.contains("python-module = []"));
+        assert!(out.contains("default = [\"python-module\"]"));
+        // Run again, and on a crate that already has it: nothing is added twice.
+        assert_eq!(ensure_deps(&out, Kind::Pyo3, &fns).unwrap(), out);
+        // Features the crate has of its own stay.
+        let own = format!("{older}\n[features]\ndefault = [\"fast\"]\nfast = []\n");
+        let out = ensure_deps(&own, Kind::Pyo3, &fns).unwrap();
+        assert!(out.contains("default = [\"fast\", \"python-module\"]"));
+        // Other kinds have no module to switch off.
+        assert!(
+            !ensure_deps(older, Kind::Napi, &fns)
+                .unwrap()
+                .contains("python-module")
+        );
     }
 
     #[test]

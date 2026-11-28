@@ -69,6 +69,13 @@ read. `ts/exports.rs` reads export lists; check `bridge` on a unit written that 
 the original counted against Jest's limit. Wrap anything added to user files in
 `/* c8 ignore start */` and `/* istanbul ignore next */`.
 
+**Two Python units would not link into one front door.** Each bridged crate defines
+`PyInit__native`, and `rust/app` links units as rlibs, so the second unit made the release link
+fail with `duplicate symbol`. The module sits behind the `python-module` feature and the front
+door turns it off; after changing what a PyO3 crate defines at link time, wire two units into
+one front door and build release (a glue that never calls its crate links, as the linker drops
+it).
+
 **A test command's output corrupted the MCP stream.** The child wrote to the server's stdout.
 Send every child's stdout to stderr or a pipe, never to the MCP server's stdout.
 
