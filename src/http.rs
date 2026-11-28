@@ -3238,18 +3238,19 @@ mod tests {
         );
 
         // Ephemeral start retries past the busy port and proceeds to the next port (where empty
-        // command fails after passing the busy-port check). Each later port is picked when it
-        // is asked for: one picked up front can be taken by a test running beside this one.
+        // command fails after passing the busy-port check). The next port is 0: nothing can
+        // listen on it, so no test running beside this one can take it, as one could take a
+        // port picked by `free_port()`.
         let mut first = Some(busy_port);
         let mut picks = 0;
         let err = start_ephemeral(&[], &launch, &repo, || {
             picks += 1;
-            first.take().map_or_else(free_port, Ok)
+            Ok(first.take().unwrap_or(0))
         })
         .err()
         .expect("empty command must fail after retrying past busy port");
         assert!(err.downcast_ref::<PortInUse>().is_none(), "{err:#}");
         assert!(format!("{err:#}").contains("empty command"), "{err:#}");
-        assert!(picks >= 2, "the busy port was not retried: {picks} pick(s)");
+        assert_eq!(picks, 2, "the busy port, then one retry");
     }
 }
