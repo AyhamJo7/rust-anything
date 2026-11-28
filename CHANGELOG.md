@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `app lift` no longer fails its `cargo test` check on a recording made with `--db-reset`.
+  trycmd cannot run the command that resets state before each case, so the generated
+  `rust/app/tests/app_cases.rs` is kept but ignored (with the reason), and the `replay in CI`
+  item says to run `rust-anything app replay <repo> --build <the binary>` in CI (#906).
 - `record --sandbox` and `app record --sandbox` (MCP `record` and `app_record`: `sandbox`) run
   the original with no network, its repository read-only and CPU and memory limits:
   bubblewrap on Linux (`--unshare-net`, the file system read-only apart from the run's scratch
