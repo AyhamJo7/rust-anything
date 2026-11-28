@@ -3217,8 +3217,6 @@ mod tests {
     fn start_ephemeral_retries_when_an_auto_picked_port_is_snatched() {
         let busy = TcpListener::bind("127.0.0.1:0").unwrap();
         let busy_port = busy.local_addr().unwrap().port();
-        let free = free_port().unwrap();
-        assert_ne!(free, busy_port);
 
         let launch = Launch {
             args: &[],
@@ -3240,13 +3238,20 @@ mod tests {
         );
 
         // Ephemeral start retries past the busy port and proceeds to the next port (where empty
-        // command fails after passing the busy-port check).
-        let mut ports = [busy_port, free].into_iter();
-        let err = start_ephemeral(&[], &launch, &repo, || Ok(ports.next().unwrap()))
-            .err()
-            .expect("empty command must fail after retrying past busy port");
+        // command fails after passing the busy-port check). The next port is 0: nothing can
+        // listen on it, so no test running beside this one can take it, as one could take a
+        // port picked by `free_port()`.
+        let mut first = Some(busy_port);
+        let mut picks = 0;
+        let err = start_ephemeral(&[], &launch, &repo, || {
+            picks += 1;
+            Ok(first.take().unwrap_or(0))
+        })
+        .err()
+        .expect("empty command must fail after retrying past busy port");
         assert!(err.downcast_ref::<PortInUse>().is_none(), "{err:#}");
         assert!(format!("{err:#}").contains("empty command"), "{err:#}");
+        assert_eq!(picks, 2, "the busy port, then one retry");
     }
 
     #[test]
