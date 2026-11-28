@@ -298,7 +298,9 @@ pub fn lib_rs(m: &Manifest, api: &PortApi, modules: &Modules) -> String {
     let mut out = format!(
         "//! Python bindings for `{}`: generated from the signatures in `port.rs` by rust-anything.\n\
          //! Regenerate with `rust-anything refresh` after changing them.\n\n\
-         #![allow(clippy::too_many_arguments)]\n\n\
+         #![allow(clippy::too_many_arguments)]\n\
+         // Without the module (a front door links the crate as a plain library) nothing calls these.\n\
+         #![cfg_attr(not(feature = \"python-module\"), allow(dead_code, unused_imports))]\n\n\
          use pyo3::prelude::*;\n\n",
         m.unit
     );
@@ -469,7 +471,7 @@ pub fn lib_rs(m: &Manifest, api: &PortApi, modules: &Modules) -> String {
     }
     let _ = writeln!(
         out,
-        "\n#[pymodule]\n#[pyo3(name = \"_native\")]\nfn native_module(m: &Bound<'_, PyModule>) -> PyResult<()> {{\n{}\n    Ok(())\n}}",
+        "\n#[cfg(feature = \"python-module\")]\n#[pymodule]\n#[pyo3(name = \"_native\")]\nfn native_module(m: &Bound<'_, PyModule>) -> PyResult<()> {{\n{}\n    Ok(())\n}}",
         registrations.join("\n")
     );
     out
@@ -1271,6 +1273,24 @@ mod tests {
     use crate::codegen::{Modules, PortApi, PortFn};
     use crate::lang::Lang;
     use crate::ts::exports::{ExportedFn, Param};
+
+    #[test]
+    fn the_module_is_behind_the_feature_so_a_front_door_can_leave_it_out() {
+        let api = PortApi {
+            functions: vec![verdict_port()],
+            ..Default::default()
+        };
+        let modules = Modules {
+            utf16: false,
+            js: false,
+        };
+        let lib = lib_rs(&verdict_manifest(), &api, &modules);
+        assert!(
+            lib.contains("#[cfg(feature = \"python-module\")]\n#[pymodule]"),
+            "{lib}"
+        );
+        assert!(lib.contains("not(feature = \"python-module\")"), "{lib}");
+    }
 
     #[test]
     fn converts_python_literals() {

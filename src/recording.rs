@@ -133,8 +133,10 @@ pub fn coverage_line(c: &Value) -> Option<String> {
     }
     // `{:.0}` rounds 99.9% up to `100%`, which reads as full coverage while a line never ran:
     // below 100 the share is floored, and it only prints `100%` when every line ran.
+    // A one-line unit reads "1 line", like every other count (issue #855).
     let mut line = format!(
-        "the recorded cases ran {reached} of the original's {lines} lines ({})",
+        "the recorded cases ran {reached} of the original's {} ({})",
+        crate::report::count(lines as usize, "line"),
         percent(reached, lines)
     );
     if !missed.is_empty() {
@@ -475,6 +477,18 @@ pub fn apply_known(mut outcome: DiffOutcome, entries: &[Value]) -> DiffOutcome {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_coverage_line_counts_one_line_in_the_singular() {
+        assert_eq!(
+            coverage_line(&json!({"lines": 1, "reached": 1})).as_deref(),
+            Some("the recorded cases ran 1 of the original's 1 line (100%)")
+        );
+        assert_eq!(
+            coverage_line(&json!({"lines": 4, "reached": 3})).as_deref(),
+            Some("the recorded cases ran 3 of the original's 4 lines (75%)")
+        );
+    }
 
     fn outcome() -> DiffOutcome {
         DiffOutcome {

@@ -8,6 +8,17 @@
   variable whose name says secret (also when the driver escaped it, as Go does `<`), `record`
   removes the file, or empties it where the folder does not allow that, and fails, naming the
   variable and the functions, never the value (#869, #870 by @AyhamJo7).
+- `record`'s coverage line (and `gate`'s coverage check) says `ran 1 of the original's 1 line`
+  for a one-line unit, not "1 lines" (#855, #885 by @XiaoBinGan).
+- Two Python units now link into one front door. Every bridged Python crate defined
+  `PyInit__native`, so a release build with two of them failed with `duplicate symbol`. The
+  module is behind a `python-module` cargo feature (on by default; `refresh` adds it to older
+  crates), and `app wire` depends on the unit with `default-features = false` (#882, #883 by
+  @AyhamJo7).
+- `bridge` writes the repository root of a crate inside its repository as a relative path
+  (`"root": "../.."`), where it wrote the absolute one. The manifest is committed with the
+  crate, and the absolute path held the machine's user and folder layout and pointed nowhere
+  in a clone (#871, #872 by @AyhamJo7).
 - The MCP server's `initialize` instructions open with the CLI's own summary, naming all ten
   languages, instead of "Incremental TS/JS to Rust migration" (#844, #866 by @jay23606).
 - `record --pin-clock` on a unit it does not cover names the language and the bridge in words
