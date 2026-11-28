@@ -41,6 +41,10 @@
   shape `record` writes. The binding used to raise `TypeError: unsupported argument type`, which
   `diff` did not show, because its driver passes the recorded dict whenever the original module
   is not loaded (#825, #826 by @AyhamJo7).
+- `bridge` on a Python function with a parameter named like a Rust keyword (`type`, `ref`)
+  writes a PyO3 crate that compiles. The `#[pyo3(signature = ...)]` line named the parameter
+  without its `r#`, which is not Rust (`expected identifier, found keyword`); it keeps the raw
+  identifier now, and Python still calls the parameter by its own name (#827, #828 by @AyhamJo7).
 
 ## 5.0.2 (2026-11-28)
 
