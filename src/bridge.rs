@@ -117,6 +117,43 @@ fn relative_root(crate_dir: &Path, root: &Path) -> Option<PathBuf> {
     })
 }
 
+/// `path` as the file system will have it once it exists: the nearest existing ancestor made
+/// canonical (links and `..` resolved), the rest joined with `..` and `.` applied by name.
+fn settled(path: &Path) -> PathBuf {
+    let absolute = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+    let mut missing: Vec<std::ffi::OsString> = Vec::new();
+    let mut existing = absolute.as_path();
+    while !existing.exists() {
+        let (Some(parent), Some(name)) = (existing.parent(), existing.file_name()) else {
+            break;
+        };
+        missing.push(name.to_os_string());
+        existing = parent;
+    }
+    let mut out = existing
+        .canonical()
+        .unwrap_or_else(|_| existing.to_path_buf());
+    for name in missing.iter().rev() {
+        out.push(name);
+    }
+    out
+}
+
+/// The manifest as it is written to `crate_dir`: for a crate inside its repository, with a
+/// relative root, so the committed file is the same in every clone and holds no path of this
+/// machine. The manifest the rest of `bridge` generates from stays absolute.
+fn manifest_text(manifest: &Manifest, crate_dir: &Path) -> Result<String> {
+    let mut on_disk = manifest.clone();
+    let root = manifest
+        .root
+        .canonical()
+        .unwrap_or_else(|_| manifest.root.clone());
+    if let Some(relative) = relative_root(&settled(crate_dir), &root) {
+        on_disk.root = relative;
+    }
+    Ok(serde_json::to_string_pretty(&on_disk)? + "\n")
+}
+
 /// What `bridge` generated; every later step starts from it.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Manifest {
@@ -1595,16 +1632,6 @@ pub fn bridge(opts: &Options) -> Result<Outcome> {
         utf16,
         js: needs_js(&fns),
     };
-    // A crate inside its repository names the root relatively, so the committed manifest is
-    // the same in every clone and holds no path of this machine.
-    let mut on_disk = manifest.clone();
-    let absolute_dir = std::path::absolute(&crate_dir).unwrap_or_else(|_| crate_dir.clone());
-    if let Some(relative) = relative_root(
-        &absolute_dir.canonical().unwrap_or(absolute_dir),
-        &root.canonical().unwrap_or_else(|_| root.clone()),
-    ) {
-        on_disk.root = relative;
-    }
     let mut files: Vec<(String, String)> = vec![
         (
             "Cargo.toml".into(),
@@ -1618,10 +1645,7 @@ pub fn bridge(opts: &Options) -> Result<Outcome> {
             "target/\n*.node\npkg/\n.rust-anything/\n*.so\n*.pyd\n__pycache__/\n".into(),
         ),
         ("README.md".into(), readme(&manifest)),
-        (
-            MANIFEST.into(),
-            serde_json::to_string_pretty(&on_disk)? + "\n",
-        ),
+        (MANIFEST.into(), manifest_text(&manifest, &crate_dir)?),
     ];
     match kind {
         Kind::Napi => files.push((
@@ -1857,7 +1881,7 @@ fn bridge_ffi(manifest: &Manifest, crate_dir: &Path, kept: &[JsOnly]) -> Result<
         ("README.md".into(), readme(manifest)),
         (
             MANIFEST.into(),
-            serde_json::to_string_pretty(manifest)? + "\n",
+            manifest_text(manifest, crate_dir)?,
         ),
     ];
     files.extend(ffi_bindings(manifest, &api)?);
@@ -1899,7 +1923,7 @@ fn bridge_c(manifest: &Manifest, crate_dir: &Path, kept: &[JsOnly]) -> Result<Ou
         ("README.md".into(), readme(manifest)),
         (
             MANIFEST.into(),
-            serde_json::to_string_pretty(manifest)? + "\n",
+            manifest_text(manifest, crate_dir)?,
         ),
     ];
     let port = crate::codegen_c::port_rs(manifest);
@@ -2297,6 +2321,44 @@ mod tests {
         assert_eq!(relative("/work/repo"), Some(PathBuf::from(".")));
         assert_eq!(relative("/elsewhere/x-rs"), None);
         assert_eq!(relative("/work/repo-two/x-rs"), None);
+    }
+
+    #[test]
+    fn an_output_folder_is_settled_before_its_depth_is_counted() {
+        let base =
+            std::env::temp_dir().join(format!("rust-anything-settle-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(base.join("repo/a")).unwrap();
+        std::fs::create_dir_all(base.join("repo/rust")).unwrap();
+        let repo = base.join("repo").canonical().unwrap();
+        // `a/../rust/x-rs` does not exist yet; counted as written it is four levels deep.
+        let crate_dir = base.join("repo/a/../rust/x-rs");
+        assert_eq!(settled(&crate_dir), repo.join("rust/x-rs"));
+        assert_eq!(
+            relative_root(&settled(&crate_dir), &repo),
+            Some(PathBuf::from("../.."))
+        );
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn every_bridge_writes_the_same_relative_root() {
+        let base = std::env::temp_dir().join(format!("rust-anything-text-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(base.join("repo/rust")).unwrap();
+        let repo = base.join("repo").canonical().unwrap();
+        let manifest: Manifest = serde_json::from_str(&format!(
+            r#"{{"schema": "rust-anything/bridge@1", "root": {root:?}, "unit": "src/x.c", "kind": "c-abi", "crate_name": "x-rs", "exports": []}}"#,
+            root = repo.to_string_lossy()
+        ))
+        .unwrap();
+        let inside = manifest_text(&manifest, &repo.join("rust/x-rs")).unwrap();
+        assert!(inside.contains(r#""root": "../..""#), "{inside}");
+        assert!(!inside.contains(&*repo.to_string_lossy()));
+        // Outside the repository nothing else says where it is.
+        let outside = manifest_text(&manifest, &base.join("elsewhere/x-rs")).unwrap();
+        assert!(outside.contains(&*repo.to_string_lossy()), "{outside}");
+        std::fs::remove_dir_all(&base).unwrap();
     }
 
     #[test]
