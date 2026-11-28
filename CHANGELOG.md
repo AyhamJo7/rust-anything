@@ -21,6 +21,12 @@
   positional argument` and the call callers really make, `pick(text, None)`, was never recorded.
   A parameter without a default now always gets its argument; trailing `None`s are still left out
   for parameters that have a default (#809, #810 by @AyhamJo7).
+- `app record` and `app replay` pair a written file by its name with the normalizers applied,
+  so an app that names its output by a time or an id can be replayed. Such a case used to be
+  reported unstable when recorded and then failed every replay, the original's included,
+  with `file <name> (not written)`. `app lift` leaves such a case out of the generated
+  `cargo test`, which compares written files by exact name, and says so in its checklist
+  (#819, #820 by @AyhamJo7).
 
 ## 5.0.2 (2026-11-28)
 
