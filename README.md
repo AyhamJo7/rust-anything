@@ -114,6 +114,13 @@ rust-anything doctor          # checks the runtimes your original needs, with th
 
 **Your tests become cases.** `record --from-tests -- npx jest` (or `pytest`) runs the original's own suite and records every call it makes to the unit. `--pin-clock` fixes the clock and random numbers on both sides, so date-dependent code can match.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/how-it-works-app-dark.svg">
+    <img src="docs/assets/how-it-works-app-light.svg" width="880" alt="Porting a whole app: analyze plans it, you settle the decisions, app record captures its real behavior, the front door runs Rust in front of the original, units move over one by one until nothing falls back, then lift leaves a pure Rust app">
+  </picture>
+</p>
+
 **Whole apps: CLIs and servers.** `app record` records a CLI (exit code, stdout, stderr, files written) or, with `--http`, a server's answers to every request. `app front-door` scaffolds `rust/app`, a Rust binary that owns the entry point and hands everything not ported yet to the original. `app wire` moves units over one at a time, `app replay` must stay at 100% while the fallback rate drops to zero, and `app lift` leaves a pure Rust app.
 
 **Side effects count.** A port that forgets to send the webhook or the email must fail. `app record --effects http,smtp` (or `--effect-env WEBHOOK_URL=http-url`) points the app at local stand-ins that record every outgoing call and mail, and `--db-dump "sqlite3 app.db .dump"` records the database after each request; replay checks the port does the same.
@@ -129,6 +136,23 @@ rust-anything doctor          # checks the runtimes your original needs, with th
 **Cheap model for the plan, strong model for the port.** The plan needs no model. For the port, pass any agent command: `rust-anything go --agent "claude --model <model>" -- <workload>`.
 
 **Agents.** `rust-anything setup` adds it to Claude Code, Codex, Cursor, Gemini CLI and OpenCode. Any other MCP client can run `rust-anything mcp`, and the skill also installs on its own with `npx skills add erkamyaman/rust-anything` (see [install](docs/install.md)).
+
+## Languages
+
+| Language | Status | Checked on |
+| --- | --- | --- |
+| TypeScript/JavaScript | Verified | ESLint, Prettier, json-server, Fuse.js, vercel/ms |
+| Python | Verified | CPython's `colorsys` (2,400/2,400 cases) |
+| Go | Verified | Go's `path` (2,642/2,642) |
+| Ruby | Verified | `shellwords` from Ruby 3.3 (1,617/1,617) |
+| Java | Verified | JDK 21 behind a facade (4,492/4,492) |
+| C | Verified | ffmpeg's libavutil, glibc |
+| C# | Verified | Google.Protobuf (2,941/2,941) |
+| PHP | Verified | PEAR `XML_Util` (1,838/1,838) |
+| Kotlin | Tested | this repository's fixtures, including Android |
+| PowerShell | Tested | this repository's fixtures |
+
+**Verified** means ported end to end on real code someone else wrote; **Tested** means covered by this repository's tests on fixtures. Every run, with dates and how it was checked: [docs/STATUS.md](docs/STATUS.md).
 
 ## Commands
 

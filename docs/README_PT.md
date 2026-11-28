@@ -86,9 +86,13 @@ Install Rust Anything with npm i -g rust-anything, then run rust-anything setup.
 Ou instale você mesmo:
 
 ```sh
-cargo install rust-anything   # or: npm install -g rust-anything
-rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CLI and OpenCode
+cargo install rust-anything   # ou: npm install -g rust-anything
+rust-anything setup           # adiciona-o ao Claude Code, Codex, Cursor, Gemini CLI e OpenCode
+rust-anything doctor          # verifica os runtimes de que o seu original precisa, com a correção para cada um
 ```
+
+> [!WARNING]
+> A gravação executa o código real do original. Trabalhe numa cópia e aponte um servidor para uma base de dados de teste.
 
 > [!TIP]
 > **Agentes:** leiam [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) para os passos de instalação, todos os comandos e o fluxo de portabilidade.
@@ -104,6 +108,23 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 
 **O que conta como concluído.** O comportamento, não os seus testes. `record` executa o original com entradas geradas e fornecidas e guarda o que cada chamada devolve, lança e imprime. Uma migração está concluída quando `gate` passa: todos os casos gravados coincidem, e fmt, clippy, `cargo test`, a verificação de `unsafe`, a verificação de stubs e a verificação de respostas gravadas coladas na migração passam todas. Os seus próprios testes também são executados.
 
+**Os seus testes tornam-se casos.** `record --from-tests -- npx jest` (ou `pytest`) executa a própria suíte do original e grava cada chamada que ela faz à unidade. `--pin-clock` fixa o relógio e os números aleatórios dos dois lados, para que o código que depende da data possa coincidir.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/how-it-works-app-dark.svg">
+    <img src="assets/how-it-works-app-light.svg" width="880" alt="Migrar uma aplicação inteira: analyze planeia-a, você toma as decisões, app record capta o seu comportamento real, a porta de entrada executa Rust à frente do original, as unidades passam uma a uma até nada recorrer ao original, e lift deixa uma aplicação em Rust puro">
+  </picture>
+</p>
+
+**Aplicações inteiras: CLIs e servidores.** `app record` grava uma CLI (código de saída, stdout, stderr, ficheiros escritos) ou, com `--http`, as respostas de um servidor a cada pedido. `app front-door` cria `rust/app`, um binário Rust que fica com o ponto de entrada e passa ao original tudo o que ainda não foi migrado. `app wire` passa as unidades uma de cada vez, `app replay` tem de se manter a 100% enquanto a taxa de fallback desce a zero, e `app lift` deixa uma aplicação em Rust puro.
+
+**Os efeitos secundários contam.** Uma migração que se esquece de enviar o webhook ou o email tem de falhar. `app record --effects http,smtp` (ou `--effect-env WEBHOOK_URL=http-url`) aponta a aplicação para substitutos locais que gravam cada chamada e cada email de saída, e `--db-dump "sqlite3 app.db .dump"` grava a base de dados depois de cada pedido; o replay verifica que a migração faz o mesmo.
+
+**O original continua a mudar?** `app drift` reproduz o original contra a sua gravação e lista o que agora responde de forma diferente, e a [GitHub Action](install.md#in-ci) executa `gate` em cada push.
+
+**Quem decide é você.** Quando corrige o comportamento da migração, `rules --add "<rule>"` guarda-o, e cada prompt posterior ao agente inclui-o. Tudo o que o rust-anything escreve fica em `<repo>/rust/`.
+
 **Relatório ou migração, você escolhe.** `analyze` e `profile` apenas relatam: um plano ordenado do que migrar e do que está quente sob uma carga real. São comandos simples, por isso o relatório não gasta tokens. `go` migra uma unidade: cria a ponte para a função mais quente, grava-a, entrega a migração ao seu agente, depois compila, compara e passa-a pelo `gate`, e só a ativa quando tudo coincide (TS/JS, Python e PowerShell; `disable` volta a desativá-la).
 
 **Quanto tempo leva uma execução.** Uma execução de `go` migra uma unidade, com no máximo `--rounds` turnos do agente (3 por padrão): um para a migração e depois um por cada diff ou gate que falhe. Uma aplicação inteira é uma execução por unidade, por isso pode parar depois de qualquer uma.
@@ -111,6 +132,43 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 **Modelo barato para o plano, modelo forte para a migração.** O plano não precisa de modelo. Para a migração, passe qualquer comando de agente: `rust-anything go --agent "claude --model <model>" -- <workload>`.
 
 **Agentes.** `rust-anything setup` adiciona-o ao Claude Code, Codex, Cursor, Gemini CLI e OpenCode. Qualquer outro cliente MCP pode executar `rust-anything mcp`, e a skill também se instala sozinha com `npx skills add erkamyaman/rust-anything` (veja [instalação](install.md)).
+
+## Linguagens
+
+| Linguagem | Estado | Validado em |
+| --- | --- | --- |
+| TypeScript/JavaScript | Verificado | ESLint, Prettier, json-server, Fuse.js, vercel/ms |
+| Python | Verificado | `colorsys` do CPython (2,400/2,400 casos) |
+| Go | Verificado | `path` do Go (2,642/2,642) |
+| Ruby | Verificado | `shellwords` do Ruby 3.3 (1,617/1,617) |
+| Java | Verificado | JDK 21 atrás de uma fachada (4,492/4,492) |
+| C | Verificado | libavutil do ffmpeg, glibc |
+| C# | Verificado | Google.Protobuf (2,941/2,941) |
+| PHP | Verificado | PEAR `XML_Util` (1,838/1,838) |
+| Kotlin | Testado | as fixtures deste repositório, incluindo Android |
+| PowerShell | Testado | as fixtures deste repositório |
+
+**Verificado** significa migrado de ponta a ponta em código real escrito por outra pessoa; **Testado** significa coberto pelos testes deste repositório em fixtures. Cada execução, com datas e a forma como foi verificada: [STATUS.md](STATUS.md).
+
+## Comandos
+
+| Comando | O que faz |
+| --- | --- |
+| `rust-anything go -- <workload>` | Faz o perfil, cria a ponte para a função mais quente, grava-a, entrega a migração ao seu agente, passa-a pelo gate e ativa-a |
+| `rust-anything analyze <repo>` | Plano de migração ordenado: unidades, prontidão, riscos, dependências |
+| `rust-anything profile <repo> -- <workload>` | O que está quente sob uma carga real, e o que migrar ou agrupar |
+| `rust-anything bridge <repo> <unit>` | Crate Rust com bindings para uma unidade, stubs em `src/port.rs` |
+| `rust-anything record <crate>` | Grava o que o original devolve, lança e imprime (`--inputs`, `--from-tests`, `--pin-clock`) |
+| `rust-anything diff <crate>` | Reproduz cada caso gravado contra o módulo Rust |
+| `rust-anything bench <crate>` | Mede o original e o Rust nos casos gravados, ponte incluída |
+| `rust-anything fuzz <crate>` | Entradas novas pelos dois lados: o que a gravação não cobriu |
+| `rust-anything gate <crate>` | A definição de concluído |
+| `rust-anything enable` / `disable <crate>` | Muda os chamadores para Rust, ou de volta |
+| `rust-anything report <crate>` | `REPORT.md` e um cartão para um pull request |
+| `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Migra uma CLI ou um servidor inteiro |
+| `rust-anything rules <repo> --add "<rule>"` | Comportamento que corrigiu, mantido por cada migração posterior |
+| `rust-anything map <repo>` | Cada unidade, o seu crate, casos e último diff |
+| `rust-anything setup` / `doctor` / `mcp` | Instalação para agentes, verificação de runtimes, servidor MCP |
 
 ## Licença
 

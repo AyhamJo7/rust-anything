@@ -86,9 +86,13 @@ Install Rust Anything with npm i -g rust-anything, then run rust-anything setup.
 Ya da özünüz quraşdırın:
 
 ```sh
-cargo install rust-anything   # or: npm install -g rust-anything
-rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CLI and OpenCode
+cargo install rust-anything   # və ya: npm install -g rust-anything
+rust-anything setup           # onu Claude Code, Codex, Cursor, Gemini CLI və OpenCode-a əlavə edir
+rust-anything doctor          # orijinalınızın ehtiyac duyduğu runtime-ları yoxlayır, hər biri üçün həll yolu ilə
 ```
+
+> [!WARNING]
+> Qeydə alma orijinalın real kodunu işə salır. Surət üzərində işləyin və serveri test verilənlər bazasına yönəldin.
 
 > [!TIP]
 > **Agentlər:** quraşdırma addımları, bütün əmrlər və portlama axını üçün [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) faylını oxuyun.
@@ -104,6 +108,23 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 
 **Nə hazır sayılır.** Testləriniz yox, davranış. `record` orijinalı yaradılmış və verilmiş girişlərlə işə salır və hər çağırışın qaytardığını, atdığını və çap etdiyini saxlayır. Port `gate` keçəndə hazırdır: qeydə alınmış hər hal uyğun gəlir, fmt, clippy, `cargo test`, `unsafe` yoxlaması, stub yoxlaması və porta yapışdırılmış qeydə alınmış cavabların yoxlaması da keçir. Öz testləriniz də işləyir.
 
+**Testləriniz hallara çevrilir.** `record --from-tests -- npx jest` (və ya `pytest`) orijinalın öz test dəstini işə salır və onun vahidə etdiyi hər çağırışı qeydə alır. `--pin-clock` hər iki tərəfdə saatı və təsadüfi ədədləri sabitləyir ki, tarixdən asılı kod da uyğun gələ bilsin.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/how-it-works-app-dark.svg">
+    <img src="assets/how-it-works-app-light.svg" width="880" alt="Bütöv tətbiqin portlanması: analyze onu planlayır, qərarları siz verirsiniz, app record onun real davranışını qeydə alır, front door Rust-ı orijinalın önündə işlədir, vahidlər heç nə orijinala qayıtmayana qədər bir-bir köçürülür, sonra lift təmiz Rust tətbiqi qoyur">
+  </picture>
+</p>
+
+**Bütöv tətbiqlər: CLI-lar və serverlər.** `app record` CLI-ı (çıxış kodu, stdout, stderr, yazılan fayllar) və ya `--http` ilə serverin hər sorğuya cavablarını qeydə alır. `app front-door` `rust/app` yaradır: giriş nöqtəsini öz üzərinə götürən və hələ portlanmamış hər şeyi orijinala ötürən Rust binary-si. `app wire` vahidləri bir-bir köçürür, `app replay` fallback nisbəti sıfıra enərkən 100%-də qalmalıdır, `app lift` isə təmiz Rust tətbiqi qoyur.
+
+**Yan təsirlər də sayılır.** Webhook-u və ya e-poçtu göndərməyi unudan port uğursuz olmalıdır. `app record --effects http,smtp` (və ya `--effect-env WEBHOOK_URL=http-url`) tətbiqi hər çıxan çağırışı və məktubu qeydə alan yerli əvəzedicilərə yönəldir, `--db-dump "sqlite3 app.db .dump"` isə hər sorğudan sonra verilənlər bazasını qeydə alır; replay portun da eyni şeyi etdiyini yoxlayır.
+
+**Orijinal dəyişməyə davam edir?** `app drift` orijinalı onun qeydinə qarşı yenidən işə salır və indi fərqli cavab verənləri sadalayır, [GitHub Action](install.md#in-ci) isə hər push-da `gate` işlədir.
+
+**Qərarları siz verirsiniz.** Portun davranışını düzəldəndə `rules --add "<rule>"` onu saxlayır və sonrakı hər agent sorğusu onu daxil edir. rust-anything-in yazdığı hər şey `<repo>/rust/` içindədir.
+
 **Hesabat və ya miqrasiya, seçim sizindir.** `analyze` və `profile` yalnız hesabat verir: nəyin portlanacağına dair sıralanmış plan və real yük altında nəyin isti olduğu. Bunlar adi əmrlərdir, ona görə hesabat heç bir token xərcləmir. `go` bir vahidi köçürür: ən isti funksiya üçün körpü qurur, onu qeydə alır, portu agentinizə verir, sonra yığır, müqayisə edir və `gate`-dən keçirir, yalnız hər şey uyğun gələndə onu işə salır (TS/JS, Python və PowerShell; `disable` onu yenidən söndürür).
 
 **Bir icra nə qədər çəkir.** Bir `go` icrası bir vahidi portlayır, ən çox `--rounds` agent növbəsi ilə (standart olaraq 3): biri port üçün, sonra hər uğursuz diff və ya gate üçün bir. Bütöv tətbiq hər vahid üçün bir icradır, ona görə istənilən birindən sonra dayana bilərsiniz.
@@ -111,6 +132,43 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 **Plan üçün ucuz model, port üçün güclü model.** Plan üçün model lazım deyil. Port üçün istənilən agent əmrini ötürün: `rust-anything go --agent "claude --model <model>" -- <workload>`.
 
 **Agentlər.** `rust-anything setup` onu Claude Code, Codex, Cursor, Gemini CLI və OpenCode-a əlavə edir. İstənilən digər MCP müştərisi `rust-anything mcp` işlədə bilər, skill isə `npx skills add erkamyaman/rust-anything` ilə ayrıca da quraşdırılır ([quraşdırma](install.md) bölməsinə baxın).
+
+## Dillər
+
+| Dil | Status | Harada yoxlanılıb |
+| --- | --- | --- |
+| TypeScript/JavaScript | Təsdiqlənib | ESLint, Prettier, json-server, Fuse.js, vercel/ms |
+| Python | Təsdiqlənib | CPython-un `colorsys` modulu (2,400/2,400 hal) |
+| Go | Təsdiqlənib | Go-nun `path` paketi (2,642/2,642) |
+| Ruby | Təsdiqlənib | Ruby 3.3-dən `shellwords` (1,617/1,617) |
+| Java | Təsdiqlənib | Fasad arxasında JDK 21 (4,492/4,492) |
+| C | Təsdiqlənib | ffmpeg-in libavutil-i, glibc |
+| C# | Təsdiqlənib | Google.Protobuf (2,941/2,941) |
+| PHP | Təsdiqlənib | PEAR `XML_Util` (1,838/1,838) |
+| Kotlin | Test edilib | bu repozitoriyanın fixture-ləri, Android daxil |
+| PowerShell | Test edilib | bu repozitoriyanın fixture-ləri |
+
+**Təsdiqlənib** başqasının yazdığı real kod üzərində başdan-sona portlanıb deməkdir; **Test edilib** bu repozitoriyanın fixture-lər üzərindəki testləri ilə əhatə olunub deməkdir. Hər icra, tarixləri və necə yoxlandığı ilə: [STATUS.md](STATUS.md).
+
+## Əmrlər
+
+| Əmr | Nə edir |
+| --- | --- |
+| `rust-anything go -- <workload>` | Profil çıxarır, ən isti funksiya üçün körpü qurur, onu qeydə alır, portu agentinizə verir, gate-dən keçirir, işə salır |
+| `rust-anything analyze <repo>` | Sıralanmış miqrasiya planı: vahidlər, hazırlıq, risklər, asılılıqlar |
+| `rust-anything profile <repo> -- <workload>` | Real yük altında nəyin isti olduğu, nəyin portlanacağı və ya qruplaşdırılacağı |
+| `rust-anything bridge <repo> <unit>` | Bir vahid üçün binding-ləri olan Rust crate-i, stub-lar `src/port.rs` içində |
+| `rust-anything record <crate>` | Orijinalın qaytardığını, atdığını və çap etdiyini qeydə alır (`--inputs`, `--from-tests`, `--pin-clock`) |
+| `rust-anything diff <crate>` | Qeydə alınmış hər halı Rust moduluna qarşı yenidən işə salır |
+| `rust-anything bench <crate>` | Orijinalı və Rust-ı qeydə alınmış hallarda ölçür, körpü daxil |
+| `rust-anything fuzz <crate>` | Hər iki tərəfdən yeni girişlər: qeydin əhatə etmədiyi |
+| `rust-anything gate <crate>` | Hazır sayılmanın tərifi |
+| `rust-anything enable` / `disable <crate>` | Çağıranları Rust-a keçirir, ya da geri qaytarır |
+| `rust-anything report <crate>` | `REPORT.md` və pull request üçün kart |
+| `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Bütöv CLI və ya serveri portlayır |
+| `rust-anything rules <repo> --add "<rule>"` | Düzəltdiyiniz davranış, sonrakı hər port tərəfindən saxlanılır |
+| `rust-anything map <repo>` | Hər vahid, onun crate-i, halları və son diff-i |
+| `rust-anything setup` / `doctor` / `mcp` | Agentlər üçün quraşdırma, runtime yoxlaması, MCP server |
 
 ## Lisenziya
 

@@ -86,9 +86,13 @@ Install Rust Anything with npm i -g rust-anything, then run rust-anything setup.
 Hoặc tự cài đặt:
 
 ```sh
-cargo install rust-anything   # or: npm install -g rust-anything
-rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CLI and OpenCode
+cargo install rust-anything   # hoặc: npm install -g rust-anything
+rust-anything setup           # thêm nó vào Claude Code, Codex, Cursor, Gemini CLI và OpenCode
+rust-anything doctor          # kiểm tra các runtime mà bản gốc cần, kèm cách sửa cho từng cái
 ```
+
+> [!WARNING]
+> Việc ghi sẽ chạy code thật của bản gốc. Hãy làm trên một bản sao, và trỏ server vào một cơ sở dữ liệu thử nghiệm.
 
 > [!TIP]
 > **Agent:** đọc [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) để xem các bước cài đặt, mọi lệnh và quy trình chuyển đổi.
@@ -104,6 +108,23 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 
 **Thế nào là xong.** Hành vi, không phải test của bạn. `record` chạy bản gốc trên các input được sinh ra và được cung cấp, rồi lưu lại những gì mỗi lời gọi trả về, ném ra và in ra. Một bản port xong khi `gate` qua: mọi case đã ghi đều khớp, và fmt, clippy, `cargo test`, kiểm tra `unsafe`, kiểm tra stub và kiểm tra câu trả lời đã ghi bị dán vào bản port đều qua. Test của chính bạn cũng được chạy.
 
+**Test của bạn trở thành case.** `record --from-tests -- npx jest` (hoặc `pytest`) chạy bộ test của chính bản gốc và ghi lại mọi lời gọi mà nó thực hiện tới unit. `--pin-clock` cố định đồng hồ và số ngẫu nhiên ở cả hai phía, nên code phụ thuộc vào ngày tháng cũng có thể khớp.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/how-it-works-app-dark.svg">
+    <img src="assets/how-it-works-app-light.svg" width="880" alt="Port cả một ứng dụng: analyze lập kế hoạch, bạn đưa ra quyết định, app record ghi lại hành vi thật, front door chạy Rust trước bản gốc, các unit được chuyển từng cái một cho đến khi không còn gì quay về bản gốc, rồi lift để lại một ứng dụng Rust thuần">
+  </picture>
+</p>
+
+**Cả ứng dụng: CLI và server.** `app record` ghi lại một CLI (exit code, stdout, stderr, các file được ghi) hoặc, với `--http`, câu trả lời của server cho mọi request. `app front-door` dựng `rust/app`, một binary Rust nắm điểm vào và chuyển mọi thứ chưa được port cho bản gốc. `app wire` chuyển từng unit một, `app replay` phải giữ ở 100% trong khi tỷ lệ fallback giảm về không, và `app lift` để lại một ứng dụng Rust thuần.
+
+**Tác dụng phụ cũng được tính.** Một bản port quên gửi webhook hoặc email phải thất bại. `app record --effects http,smtp` (hoặc `--effect-env WEBHOOK_URL=http-url`) trỏ ứng dụng tới các bản thay thế cục bộ ghi lại mọi lời gọi và thư gửi đi, và `--db-dump "sqlite3 app.db .dump"` ghi lại cơ sở dữ liệu sau mỗi request; replay kiểm tra rằng bản port làm điều tương tự.
+
+**Bản gốc vẫn tiếp tục thay đổi?** `app drift` chạy lại bản gốc so với bản ghi của nó và liệt kê những gì giờ trả lời khác đi, và [GitHub Action](install.md#in-ci) chạy `gate` ở mỗi lần push.
+
+**Bạn là người quyết định.** Khi bạn sửa hành vi của bản port, `rules --add "<rule>"` giữ lại điều đó, và mọi prompt sau này cho agent đều kèm theo nó. Mọi thứ rust-anything ghi ra đều nằm trong `<repo>/rust/`.
+
 **Báo cáo hay chuyển đổi, bạn chọn.** `analyze` và `profile` chỉ báo cáo: một kế hoạch xếp hạng những gì nên port, và phần nào nóng dưới tải thực. Đây là các lệnh thường, nên báo cáo không tốn token nào. `go` chuyển đổi một unit: tạo cầu nối cho hàm nóng nhất, ghi lại nó, giao bản port cho agent của bạn, rồi build, diff và chạy `gate`, và chỉ bật nó lên khi mọi thứ khớp (TS/JS, Python và PowerShell; `disable` tắt nó đi).
 
 **Một lần chạy mất bao lâu.** Một lần chạy `go` port một unit, với tối đa `--rounds` lượt agent (mặc định 3): một lượt cho bản port, rồi một lượt cho mỗi diff hoặc gate thất bại. Cả ứng dụng là một lần chạy cho mỗi unit, nên bạn có thể dừng sau bất kỳ lần nào.
@@ -111,6 +132,43 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 **Model rẻ cho kế hoạch, model mạnh cho bản port.** Kế hoạch không cần model. Cho bản port, truyền bất kỳ lệnh agent nào: `rust-anything go --agent "claude --model <model>" -- <workload>`.
 
 **Agent.** `rust-anything setup` thêm nó vào Claude Code, Codex, Cursor, Gemini CLI và OpenCode. Bất kỳ client MCP nào khác cũng có thể chạy `rust-anything mcp`, và skill cũng có thể cài riêng bằng `npx skills add erkamyaman/rust-anything` (xem [cài đặt](install.md)).
+
+## Ngôn ngữ
+
+| Ngôn ngữ | Trạng thái | Kiểm tra trên |
+| --- | --- | --- |
+| TypeScript/JavaScript | Đã xác minh | ESLint, Prettier, json-server, Fuse.js, vercel/ms |
+| Python | Đã xác minh | `colorsys` của CPython (2,400/2,400 case) |
+| Go | Đã xác minh | `path` của Go (2,642/2,642) |
+| Ruby | Đã xác minh | `shellwords` từ Ruby 3.3 (1,617/1,617) |
+| Java | Đã xác minh | JDK 21 sau một facade (4,492/4,492) |
+| C | Đã xác minh | libavutil của ffmpeg, glibc |
+| C# | Đã xác minh | Google.Protobuf (2,941/2,941) |
+| PHP | Đã xác minh | PEAR `XML_Util` (1,838/1,838) |
+| Kotlin | Đã kiểm thử | fixture của repo này, gồm cả Android |
+| PowerShell | Đã kiểm thử | fixture của repo này |
+
+**Đã xác minh** nghĩa là đã port trọn vẹn trên code thật do người khác viết; **Đã kiểm thử** nghĩa là được bao phủ bởi test của repo này trên fixture. Mọi lần chạy, kèm ngày và cách kiểm tra: [STATUS.md](STATUS.md).
+
+## Các lệnh
+
+| Lệnh | Chức năng |
+| --- | --- |
+| `rust-anything go -- <workload>` | Profile, tạo cầu nối cho hàm nóng nhất, ghi lại nó, giao bản port cho agent của bạn, chạy gate, bật nó lên |
+| `rust-anything analyze <repo>` | Kế hoạch chuyển đổi được xếp hạng: unit, mức sẵn sàng, rủi ro, phụ thuộc |
+| `rust-anything profile <repo> -- <workload>` | Phần nào nóng dưới tải thực, và nên port hoặc gộp gì |
+| `rust-anything bridge <repo> <unit>` | Crate Rust có binding cho một unit, stub trong `src/port.rs` |
+| `rust-anything record <crate>` | Ghi lại những gì bản gốc trả về, ném ra và in ra (`--inputs`, `--from-tests`, `--pin-clock`) |
+| `rust-anything diff <crate>` | Chạy lại mọi case đã ghi với module Rust |
+| `rust-anything bench <crate>` | Đo thời gian bản gốc và Rust trên các case đã ghi, tính cả cầu nối |
+| `rust-anything fuzz <crate>` | Input mới qua cả hai phía: những gì bản ghi chưa bao quát |
+| `rust-anything gate <crate>` | Định nghĩa của xong |
+| `rust-anything enable` / `disable <crate>` | Chuyển bên gọi sang Rust, hoặc chuyển lại |
+| `rust-anything report <crate>` | `REPORT.md` và một thẻ cho pull request |
+| `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Port cả một CLI hoặc server |
+| `rust-anything rules <repo> --add "<rule>"` | Hành vi bạn đã sửa, được giữ trong mọi bản port sau này |
+| `rust-anything map <repo>` | Mọi unit, crate của nó, các case và diff gần nhất |
+| `rust-anything setup` / `doctor` / `mcp` | Cài đặt cho agent, kiểm tra runtime, server MCP |
 
 ## Giấy phép
 

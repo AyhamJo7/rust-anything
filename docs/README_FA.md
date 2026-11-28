@@ -88,9 +88,13 @@ Install Rust Anything with npm i -g rust-anything, then run rust-anything setup.
 یا خودتان نصبش کنید:
 
 ```sh
-cargo install rust-anything   # or: npm install -g rust-anything
-rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CLI and OpenCode
+cargo install rust-anything   # یا: npm install -g rust-anything
+rust-anything setup           # آن را به Claude Code، Codex، Cursor، Gemini CLI و OpenCode اضافه می‌کند
+rust-anything doctor          # محیط‌های اجرایی موردنیاز نسخهٔ اصلی شما را بررسی می‌کند، با راه‌حل هر کدام
 ```
+
+> [!WARNING]
+> ضبط، کد واقعی نسخهٔ اصلی را اجرا می‌کند. روی یک کپی کار کنید، و سرور را به یک پایگاه دادهٔ آزمایشی وصل کنید.
 
 > **ایجنت‌ها:** برای مراحل نصب، همهٔ دستورها و روند پورت، [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) را بخوانید.
 
@@ -105,6 +109,23 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 
 **چه چیزی تمام‌شده حساب می‌شود.** رفتار، نه تست‌های شما. `record` نسخهٔ اصلی را روی ورودی‌های تولیدشده و داده‌شده اجرا می‌کند و آنچه هر فراخوانی برمی‌گرداند، پرتاب می‌کند و چاپ می‌کند را ذخیره می‌کند. پورت وقتی تمام است که `gate` پاس شود: همهٔ موردهای ضبط‌شده مطابقت دارند، و fmt، clippy، `cargo test`، بررسی `unsafe`، بررسی stub و بررسی پاسخ‌های ضبط‌شده‌ای که در پورت چسبانده شده‌اند همگی پاس می‌شوند. تست‌های خودتان هم اجرا می‌شوند.
 
+**تست‌های شما به مورد تبدیل می‌شوند.** `record --from-tests -- npx jest` (یا `pytest`) مجموعهٔ تست خود نسخهٔ اصلی را اجرا می‌کند و هر فراخوانی‌ای را که به واحد می‌زند ضبط می‌کند. `--pin-clock` ساعت و اعداد تصادفی را در هر دو طرف ثابت می‌کند، تا کدی که به تاریخ وابسته است هم بتواند مطابقت داشته باشد.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/how-it-works-app-dark.svg">
+    <img src="assets/how-it-works-app-light.svg" width="880" alt="پورت یک برنامهٔ کامل: analyze برنامه‌ریزی می‌کند، تصمیم‌ها با شماست، app record رفتار واقعی آن را ضبط می‌کند، front door کد Rust را جلوی نسخهٔ اصلی اجرا می‌کند، واحدها یکی‌یکی منتقل می‌شوند تا هیچ چیز به نسخهٔ اصلی برنگردد، سپس lift یک برنامهٔ خالص Rust باقی می‌گذارد">
+  </picture>
+</p>
+
+**کل برنامه‌ها: CLIها و سرورها.** `app record` یک CLI را ضبط می‌کند (کد خروج، stdout، stderr، فایل‌های نوشته‌شده) یا، با `--http`، پاسخ‌های یک سرور به هر درخواست را. `app front-door` پوشهٔ `rust/app` را می‌سازد، یک باینری Rust که نقطهٔ ورود را در دست می‌گیرد و هر چیزی را که هنوز پورت نشده به نسخهٔ اصلی می‌سپارد. `app wire` واحدها را یکی‌یکی منتقل می‌کند، `app replay` باید در 100% بماند در حالی که نرخ fallback به صفر می‌رسد، و `app lift` یک برنامهٔ خالص Rust باقی می‌گذارد.
+
+**اثرهای جانبی هم حساب می‌شوند.** پورتی که فراموش کند webhook یا ایمیل را بفرستد باید شکست بخورد. `app record --effects http,smtp` (یا `--effect-env WEBHOOK_URL=http-url`) برنامه را به جایگزین‌های محلی‌ای هدایت می‌کند که هر فراخوانی و ایمیل خروجی را ضبط می‌کنند، و `--db-dump "sqlite3 app.db .dump"` پایگاه داده را پس از هر درخواست ضبط می‌کند؛ replay بررسی می‌کند که پورت هم همین کار را بکند.
+
+**نسخهٔ اصلی مدام تغییر می‌کند؟** `app drift` نسخهٔ اصلی را در برابر ضبط خودش دوباره اجرا می‌کند و آنچه را اکنون پاسخ متفاوتی می‌دهد فهرست می‌کند، و [GitHub Action](install.md#in-ci) در هر push، `gate` را اجرا می‌کند.
+
+**تصمیم با شماست.** وقتی رفتار پورت را اصلاح می‌کنید، `rules --add "<rule>"` آن را نگه می‌دارد، و هر پرامپت بعدی ایجنت آن را شامل می‌شود. هر چیزی که rust-anything می‌نویسد در `<repo>/rust/` قرار دارد.
+
 **گزارش یا مهاجرت، انتخاب با شماست.** `analyze` و `profile` فقط گزارش می‌دهند: یک برنامهٔ رتبه‌بندی‌شده از اینکه چه چیزی را پورت کنید، و اینکه زیر بار کاری واقعی چه بخشی داغ است. این‌ها دستورهای ساده‌اند، پس گزارش هیچ توکنی مصرف نمی‌کند. `go` یک واحد را مهاجرت می‌دهد: برای داغ‌ترین تابع پل می‌سازد، آن را ضبط می‌کند، پورت را به ایجنت شما می‌سپارد، سپس آن را build می‌کند، diff می‌گیرد و از `gate` می‌گذراند، و فقط وقتی همه چیز مطابقت داشت آن را روشن می‌کند (TS/JS، Python و PowerShell؛ `disable` دوباره خاموشش می‌کند).
 
 **هر اجرا چقدر طول می‌کشد.** هر اجرای `go` یک واحد را پورت می‌کند، با حداکثر `--rounds` نوبت ایجنت (پیش‌فرض 3): یکی برای پورت، سپس یکی به ازای هر diff یا gate ناموفق. کل برنامه یعنی یک اجرا برای هر واحد، پس می‌توانید بعد از هر کدام متوقف شوید.
@@ -112,6 +133,43 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 **مدل ارزان برای برنامه، مدل قوی برای پورت.** برنامه به مدل نیازی ندارد. برای پورت، هر دستور ایجنتی را بدهید: `rust-anything go --agent "claude --model <model>" -- <workload>`.
 
 **ایجنت‌ها.** `rust-anything setup` آن را به Claude Code، Codex، Cursor، Gemini CLI و OpenCode اضافه می‌کند. هر کلاینت MCP دیگری می‌تواند `rust-anything mcp` را اجرا کند، و اسکیل هم به‌تنهایی با `npx skills add erkamyaman/rust-anything` نصب می‌شود ([نصب](install.md) را ببینید).
+
+## زبان‌ها
+
+| زبان | وضعیت | بررسی‌شده روی |
+| --- | --- | --- |
+| TypeScript/JavaScript | تأییدشده | ESLint, Prettier, json-server, Fuse.js, vercel/ms |
+| Python | تأییدشده | `colorsys` از CPython (2,400/2,400 مورد) |
+| Go | تأییدشده | `path` از Go (2,642/2,642) |
+| Ruby | تأییدشده | `shellwords` از Ruby 3.3 (1,617/1,617) |
+| Java | تأییدشده | JDK 21 پشت یک facade (4,492/4,492) |
+| C | تأییدشده | libavutil از ffmpeg، glibc |
+| C# | تأییدشده | Google.Protobuf (2,941/2,941) |
+| PHP | تأییدشده | PEAR `XML_Util` (1,838/1,838) |
+| Kotlin | آزموده | fixtureهای همین مخزن، از جمله Android |
+| PowerShell | آزموده | fixtureهای همین مخزن |
+
+**تأییدشده** یعنی روی کد واقعی‌ای که کس دیگری نوشته، از ابتدا تا انتها پورت شده است؛ **آزموده** یعنی تست‌های همین مخزن روی fixtureها آن را پوشش می‌دهند. همهٔ اجراها، با تاریخ و روش بررسی: [STATUS.md](STATUS.md).
+
+## دستورها
+
+| دستور | چه می‌کند |
+| --- | --- |
+| `rust-anything go -- <workload>` | پروفایل می‌گیرد، برای داغ‌ترین تابع پل می‌سازد، آن را ضبط می‌کند، پورت را به ایجنت شما می‌سپارد، از gate می‌گذراند، روشنش می‌کند |
+| `rust-anything analyze <repo>` | برنامهٔ مهاجرت رتبه‌بندی‌شده: واحدها، آمادگی، ریسک‌ها، وابستگی‌ها |
+| `rust-anything profile <repo> -- <workload>` | زیر بار کاری واقعی چه بخشی داغ است، و چه چیزی را پورت یا دسته‌ای کنید |
+| `rust-anything bridge <repo> <unit>` | یک crate در Rust با bindingهای یک واحد، و stubها در `src/port.rs` |
+| `rust-anything record <crate>` | آنچه نسخهٔ اصلی برمی‌گرداند، پرتاب می‌کند و چاپ می‌کند را ضبط می‌کند (`--inputs`، `--from-tests`، `--pin-clock`) |
+| `rust-anything diff <crate>` | هر مورد ضبط‌شده را در برابر ماژول Rust دوباره اجرا می‌کند |
+| `rust-anything bench <crate>` | زمان نسخهٔ اصلی و Rust را روی موردهای ضبط‌شده می‌سنجد، با احتساب پل |
+| `rust-anything fuzz <crate>` | ورودی‌های تازه از هر دو طرف: آنچه ضبط پوشش نداده |
+| `rust-anything gate <crate>` | تعریف تمام‌شده |
+| `rust-anything enable` / `disable <crate>` | فراخواننده‌ها را به Rust می‌برد، یا برمی‌گرداند |
+| `rust-anything report <crate>` | `REPORT.md` و یک کارت برای pull request |
+| `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | یک CLI یا سرور کامل را پورت می‌کند |
+| `rust-anything rules <repo> --add "<rule>"` | رفتاری که اصلاح کرده‌اید، و هر پورت بعدی آن را حفظ می‌کند |
+| `rust-anything map <repo>` | هر واحد، crate آن، موردها و آخرین diff |
+| `rust-anything setup` / `doctor` / `mcp` | نصب برای ایجنت‌ها، بررسی محیط‌های اجرایی، سرور MCP |
 
 ## مجوز
 

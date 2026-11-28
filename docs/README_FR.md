@@ -86,9 +86,13 @@ Install Rust Anything with npm i -g rust-anything, then run rust-anything setup.
 Ou installez-le vous-même :
 
 ```sh
-cargo install rust-anything   # or: npm install -g rust-anything
-rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CLI and OpenCode
+cargo install rust-anything   # ou : npm install -g rust-anything
+rust-anything setup           # l'ajoute à Claude Code, Codex, Cursor, Gemini CLI et OpenCode
+rust-anything doctor          # vérifie les runtimes dont votre original a besoin, avec le correctif pour chacun
 ```
+
+> [!WARNING]
+> L'enregistrement exécute le vrai code de l'original. Travaillez sur une copie, et pointez un serveur vers une base de données de test.
 
 > [!TIP]
 > **Agents :** lisez [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) pour les étapes d'installation, toutes les commandes et le flux de portage.
@@ -104,6 +108,23 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 
 **Ce qui compte comme terminé.** Le comportement, pas vos tests. `record` exécute l'original sur des entrées générées et fournies, et enregistre ce que chaque appel renvoie, lève et affiche. Un portage est terminé quand `gate` passe : chaque cas enregistré correspond, et fmt, clippy, `cargo test`, la vérification `unsafe`, la vérification des stubs et celle des réponses enregistrées collées dans le portage passent toutes. Vos propres tests tournent aussi.
 
+**Vos tests deviennent des cas.** `record --from-tests -- npx jest` (ou `pytest`) exécute la propre suite de l'original et enregistre chaque appel qu'elle fait à l'unité. `--pin-clock` fige l'horloge et les nombres aléatoires des deux côtés, pour que le code qui dépend de la date puisse correspondre.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/how-it-works-app-dark.svg">
+    <img src="assets/how-it-works-app-light.svg" width="880" alt="Porter une application entière : analyze la planifie, vous tranchez les décisions, app record capture son vrai comportement, la porte d'entrée exécute Rust devant l'original, les unités passent une par une jusqu'à ce que plus rien ne retombe sur l'original, puis lift laisse une application en pur Rust">
+  </picture>
+</p>
+
+**Applications entières : CLI et serveurs.** `app record` enregistre une CLI (code de sortie, stdout, stderr, fichiers écrits) ou, avec `--http`, les réponses d'un serveur à chaque requête. `app front-door` crée `rust/app`, un binaire Rust qui prend le point d'entrée et confie à l'original tout ce qui n'est pas encore porté. `app wire` fait passer les unités une par une, `app replay` doit rester à 100 % pendant que le taux de repli descend à zéro, et `app lift` laisse une application en pur Rust.
+
+**Les effets de bord comptent.** Un portage qui oublie d'envoyer le webhook ou l'e-mail doit échouer. `app record --effects http,smtp` (ou `--effect-env WEBHOOK_URL=http-url`) dirige l'application vers des doublures locales qui enregistrent chaque appel et chaque mail sortants, et `--db-dump "sqlite3 app.db .dump"` enregistre la base de données après chaque requête ; le rejeu vérifie que le portage fait de même.
+
+**L'original continue de changer ?** `app drift` rejoue l'original face à son enregistrement et liste ce qui répond désormais différemment, et la [GitHub Action](install.md#in-ci) lance `gate` à chaque push.
+
+**C'est vous qui décidez.** Quand vous corrigez le comportement du portage, `rules --add "<rule>"` le conserve, et chaque prompt d'agent suivant l'inclut. Tout ce qu'écrit rust-anything se trouve dans `<repo>/rust/`.
+
 **Rapport ou migration, à vous de choisir.** `analyze` et `profile` ne font que rapporter : un plan classé de ce qu'il faut porter, et de ce qui est chaud sous une vraie charge. Ce sont de simples commandes, donc le rapport ne coûte aucun token. `go` migre une unité : il crée le pont vers la fonction la plus chaude, l'enregistre, confie le portage à votre agent, puis le compile, le compare et le passe à `gate`, et ne l'active que si tout correspond (TS/JS, Python et PowerShell ; `disable` le désactive à nouveau).
 
 **Durée d'une exécution.** Une exécution de `go` porte une unité, avec au plus `--rounds` tours d'agent (3 par défaut) : un pour le portage, puis un par diff ou gate en échec. Une application entière, c'est une exécution par unité, vous pouvez donc vous arrêter après n'importe laquelle.
@@ -111,6 +132,43 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 **Modèle bon marché pour le plan, modèle puissant pour le portage.** Le plan n'a besoin d'aucun modèle. Pour le portage, passez n'importe quelle commande d'agent : `rust-anything go --agent "claude --model <model>" -- <workload>`.
 
 **Agents.** `rust-anything setup` l'ajoute à Claude Code, Codex, Cursor, Gemini CLI et OpenCode. Tout autre client MCP peut lancer `rust-anything mcp`, et le skill s'installe aussi seul avec `npx skills add erkamyaman/rust-anything` (voir [installation](install.md)).
+
+## Langages
+
+| Langage | Statut | Contrôlé sur |
+| --- | --- | --- |
+| TypeScript/JavaScript | Vérifié | ESLint, Prettier, json-server, Fuse.js, vercel/ms |
+| Python | Vérifié | `colorsys` de CPython (2,400/2,400 cas) |
+| Go | Vérifié | `path` de Go (2,642/2,642) |
+| Ruby | Vérifié | `shellwords` de Ruby 3.3 (1,617/1,617) |
+| Java | Vérifié | JDK 21 derrière une façade (4,492/4,492) |
+| C | Vérifié | libavutil de ffmpeg, glibc |
+| C# | Vérifié | Google.Protobuf (2,941/2,941) |
+| PHP | Vérifié | PEAR `XML_Util` (1,838/1,838) |
+| Kotlin | Testé | les fixtures de ce dépôt, Android compris |
+| PowerShell | Testé | les fixtures de ce dépôt |
+
+**Vérifié** signifie porté de bout en bout sur du vrai code écrit par quelqu'un d'autre ; **Testé** signifie couvert par les tests de ce dépôt sur des fixtures. Chaque exécution, avec les dates et la façon dont elle a été vérifiée : [STATUS.md](STATUS.md).
+
+## Commandes
+
+| Commande | Ce qu'elle fait |
+| --- | --- |
+| `rust-anything go -- <workload>` | Profile, crée le pont vers la fonction la plus chaude, l'enregistre, confie le portage à votre agent, le passe à gate, l'active |
+| `rust-anything analyze <repo>` | Plan de migration classé : unités, maturité, risques, dépendances |
+| `rust-anything profile <repo> -- <workload>` | Ce qui est chaud sous une vraie charge, et ce qu'il faut porter ou regrouper |
+| `rust-anything bridge <repo> <unit>` | Crate Rust avec les bindings d'une unité, stubs dans `src/port.rs` |
+| `rust-anything record <crate>` | Enregistre ce que l'original renvoie, lève et affiche (`--inputs`, `--from-tests`, `--pin-clock`) |
+| `rust-anything diff <crate>` | Rejoue chaque cas enregistré face au module Rust |
+| `rust-anything bench <crate>` | Chronomètre l'original et Rust sur les cas enregistrés, pont compris |
+| `rust-anything fuzz <crate>` | De nouvelles entrées des deux côtés : ce que l'enregistrement n'a pas couvert |
+| `rust-anything gate <crate>` | La définition de terminé |
+| `rust-anything enable` / `disable <crate>` | Bascule les appelants vers Rust, ou les ramène |
+| `rust-anything report <crate>` | `REPORT.md` et une carte pour une pull request |
+| `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Porte une CLI ou un serveur entier |
+| `rust-anything rules <repo> --add "<rule>"` | Comportement que vous avez corrigé, conservé par chaque portage suivant |
+| `rust-anything map <repo>` | Chaque unité, son crate, ses cas et son dernier diff |
+| `rust-anything setup` / `doctor` / `mcp` | Installation pour les agents, vérification des runtimes, serveur MCP |
 
 ## Licence
 

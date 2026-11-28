@@ -88,9 +88,13 @@ Install Rust Anything with npm i -g rust-anything, then run rust-anything setup.
 Atau pasang sendiri:
 
 ```sh
-cargo install rust-anything   # or: npm install -g rust-anything
-rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CLI and OpenCode
+cargo install rust-anything   # atau: npm install -g rust-anything
+rust-anything setup           # menambahkannya ke Claude Code, Codex, Cursor, Gemini CLI, dan OpenCode
+rust-anything doctor          # memeriksa runtime yang dibutuhkan versi asli Anda, beserta perbaikan untuk masing-masing
 ```
+
+> [!WARNING]
+> Perekaman menjalankan kode sungguhan dari versi asli. Bekerjalah pada salinan, dan arahkan server ke basis data uji.
 
 > [!TIP]
 > **Agen:** baca [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) untuk langkah instalasi, semua perintah, dan alur porting.
@@ -106,6 +110,23 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 
 **Apa yang dianggap selesai.** Perilaku, bukan tes Anda. `record` menjalankan versi asli dengan input yang dihasilkan dan yang diberikan, lalu menyimpan apa yang dikembalikan, dilempar, dan dicetak setiap panggilan. Port selesai saat `gate` lolos: setiap kasus yang direkam cocok, dan fmt, clippy, `cargo test`, pemeriksaan `unsafe`, pemeriksaan stub, serta pemeriksaan jawaban rekaman yang ditempel ke port semuanya lolos. Tes Anda sendiri juga dijalankan.
 
+**Tes Anda menjadi kasus.** `record --from-tests -- npx jest` (atau `pytest`) menjalankan suite tes milik versi asli dan merekam setiap panggilan yang dibuatnya ke unit. `--pin-clock` mengunci jam dan angka acak di kedua sisi, sehingga kode yang bergantung pada tanggal bisa cocok.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/how-it-works-app-dark.svg">
+    <img src="assets/how-it-works-app-light.svg" width="880" alt="Mem-port seluruh aplikasi: analyze merencanakannya, Anda yang memutuskan, app record merekam perilaku nyatanya, front door menjalankan Rust di depan versi asli, unit dipindahkan satu per satu sampai tidak ada lagi yang kembali ke versi asli, lalu lift menyisakan aplikasi Rust murni">
+  </picture>
+</p>
+
+**Aplikasi utuh: CLI dan server.** `app record` merekam CLI (kode keluar, stdout, stderr, file yang ditulis) atau, dengan `--http`, jawaban server untuk setiap permintaan. `app front-door` membuat kerangka `rust/app`, binary Rust yang memegang titik masuk dan menyerahkan semua yang belum di-port ke versi asli. `app wire` memindahkan unit satu per satu, `app replay` harus tetap 100% sementara tingkat fallback turun ke nol, dan `app lift` menyisakan aplikasi Rust murni.
+
+**Efek samping ikut dihitung.** Port yang lupa mengirim webhook atau email harus gagal. `app record --effects http,smtp` (atau `--effect-env WEBHOOK_URL=http-url`) mengarahkan aplikasi ke pengganti lokal yang merekam setiap panggilan dan email keluar, dan `--db-dump "sqlite3 app.db .dump"` merekam basis data setelah setiap permintaan; replay memeriksa bahwa port melakukan hal yang sama.
+
+**Versi asli terus berubah?** `app drift` memutar ulang versi asli terhadap rekamannya dan mendaftar apa yang kini menjawab berbeda, dan [GitHub Action](install.md#in-ci) menjalankan `gate` di setiap push.
+
+**Anda yang memutuskan.** Saat Anda mengoreksi perilaku port, `rules --add "<rule>"` menyimpannya, dan setiap prompt agen berikutnya menyertakannya. Semua yang ditulis rust-anything ada di `<repo>/rust/`.
+
 **Laporan atau migrasi, Anda yang pilih.** `analyze` dan `profile` hanya melapor: rencana berperingkat tentang apa yang perlu di-port, dan bagian mana yang panas di bawah beban kerja nyata. Keduanya perintah biasa, jadi laporannya tidak memakan token. `go` memigrasikan satu unit: membuat jembatan untuk fungsi terpanas, merekamnya, menyerahkan port ke agen Anda, lalu mem-build, membandingkan, dan menjalankan `gate` padanya, dan baru mengaktifkannya saat semuanya cocok (TS/JS, Python, dan PowerShell; `disable` mematikannya kembali).
 
 **Berapa lama satu run.** Satu run `go` mem-port satu unit, dengan paling banyak `--rounds` giliran agen (default 3): satu untuk port, lalu satu per diff atau gate yang gagal. Seluruh aplikasi berarti satu run per unit, jadi Anda bisa berhenti setelah yang mana pun.
@@ -113,6 +134,43 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 **Model murah untuk rencana, model kuat untuk port.** Rencana tidak butuh model. Untuk port, berikan perintah agen apa pun: `rust-anything go --agent "claude --model <model>" -- <workload>`.
 
 **Agen.** `rust-anything setup` menambahkannya ke Claude Code, Codex, Cursor, Gemini CLI, dan OpenCode. Klien MCP lain bisa menjalankan `rust-anything mcp`, dan skill-nya juga bisa dipasang sendiri dengan `npx skills add erkamyaman/rust-anything` (lihat [instalasi](install.md)).
+
+## Bahasa
+
+| Bahasa | Status | Diperiksa pada |
+| --- | --- | --- |
+| TypeScript/JavaScript | Terverifikasi | ESLint, Prettier, json-server, Fuse.js, vercel/ms |
+| Python | Terverifikasi | `colorsys` milik CPython (2,400/2,400 kasus) |
+| Go | Terverifikasi | `path` milik Go (2,642/2,642) |
+| Ruby | Terverifikasi | `shellwords` dari Ruby 3.3 (1,617/1,617) |
+| Java | Terverifikasi | JDK 21 di balik facade (4,492/4,492) |
+| C | Terverifikasi | libavutil milik ffmpeg, glibc |
+| C# | Terverifikasi | Google.Protobuf (2,941/2,941) |
+| PHP | Terverifikasi | PEAR `XML_Util` (1,838/1,838) |
+| Kotlin | Teruji | fixture repositori ini, termasuk Android |
+| PowerShell | Teruji | fixture repositori ini |
+
+**Terverifikasi** berarti di-port dari ujung ke ujung pada kode nyata yang ditulis orang lain; **Teruji** berarti dicakup oleh tes repositori ini pada fixture. Setiap run, dengan tanggal dan cara pemeriksaannya: [STATUS.md](STATUS.md).
+
+## Perintah
+
+| Perintah | Fungsinya |
+| --- | --- |
+| `rust-anything go -- <workload>` | Mem-profile, membuat jembatan untuk fungsi terpanas, merekamnya, menyerahkan port ke agen Anda, menjalankan gate, mengaktifkannya |
+| `rust-anything analyze <repo>` | Rencana migrasi berperingkat: unit, kesiapan, risiko, dependensi |
+| `rust-anything profile <repo> -- <workload>` | Bagian mana yang panas di bawah beban kerja nyata, dan apa yang perlu di-port atau digabung |
+| `rust-anything bridge <repo> <unit>` | Crate Rust dengan binding untuk satu unit, stub di `src/port.rs` |
+| `rust-anything record <crate>` | Merekam apa yang dikembalikan, dilempar, dan dicetak versi asli (`--inputs`, `--from-tests`, `--pin-clock`) |
+| `rust-anything diff <crate>` | Memutar ulang setiap kasus rekaman terhadap modul Rust |
+| `rust-anything bench <crate>` | Mengukur waktu versi asli dan Rust pada kasus rekaman, termasuk jembatannya |
+| `rust-anything fuzz <crate>` | Input baru melalui kedua sisi: apa yang tidak tercakup rekaman |
+| `rust-anything gate <crate>` | Definisi selesai |
+| `rust-anything enable` / `disable <crate>` | Mengalihkan pemanggil ke Rust, atau kembali |
+| `rust-anything report <crate>` | `REPORT.md` dan kartu untuk pull request |
+| `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Mem-port seluruh CLI atau server |
+| `rust-anything rules <repo> --add "<rule>"` | Perilaku yang Anda koreksi, dipertahankan oleh setiap port berikutnya |
+| `rust-anything map <repo>` | Setiap unit, crate-nya, kasusnya, dan diff terakhirnya |
+| `rust-anything setup` / `doctor` / `mcp` | Instalasi untuk agen, pemeriksaan runtime, server MCP |
 
 ## Lisensi
 

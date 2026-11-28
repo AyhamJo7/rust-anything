@@ -86,9 +86,13 @@ Install Rust Anything with npm i -g rust-anything, then run rust-anything setup.
 Oppure installalo tu:
 
 ```sh
-cargo install rust-anything   # or: npm install -g rust-anything
-rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CLI and OpenCode
+cargo install rust-anything   # oppure: npm install -g rust-anything
+rust-anything setup           # lo aggiunge a Claude Code, Codex, Cursor, Gemini CLI e OpenCode
+rust-anything doctor          # controlla i runtime di cui ha bisogno il tuo originale, con la correzione per ciascuno
 ```
+
+> [!WARNING]
+> La registrazione esegue il codice reale dell'originale. Lavora su una copia e punta un server a un database di test.
 
 > [!TIP]
 > **Agenti:** leggete [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) per i passi di installazione, tutti i comandi e il flusso di porting.
@@ -104,6 +108,23 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 
 **Cosa conta come finito.** Il comportamento, non i tuoi test. `record` esegue l'originale su input generati e forniti e salva ciò che ogni chiamata restituisce, lancia e stampa. Un port è finito quando `gate` passa: ogni caso registrato corrisponde, e fmt, clippy, `cargo test`, il controllo `unsafe`, il controllo degli stub e quello sulle risposte registrate incollate nel port passano tutti. Girano anche i tuoi test.
 
+**I tuoi test diventano casi.** `record --from-tests -- npx jest` (o `pytest`) esegue la suite dell'originale e registra ogni chiamata che fa all'unità. `--pin-clock` fissa l'orologio e i numeri casuali su entrambi i lati, così anche il codice che dipende dalla data può corrispondere.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/how-it-works-app-dark.svg">
+    <img src="assets/how-it-works-app-light.svg" width="880" alt="Portare un'intera applicazione: analyze la pianifica, tu prendi le decisioni, app record cattura il suo comportamento reale, il front door esegue Rust davanti all'originale, le unità passano una alla volta finché nulla ricade sull'originale, poi lift lascia un'applicazione in puro Rust">
+  </picture>
+</p>
+
+**Applicazioni intere: CLI e server.** `app record` registra una CLI (codice di uscita, stdout, stderr, file scritti) o, con `--http`, le risposte di un server a ogni richiesta. `app front-door` crea `rust/app`, un binario Rust che prende il punto di ingresso e passa all'originale tutto ciò che non è ancora portato. `app wire` sposta le unità una alla volta, `app replay` deve restare al 100% mentre il tasso di fallback scende a zero, e `app lift` lascia un'applicazione in puro Rust.
+
+**Gli effetti collaterali contano.** Un port che dimentica di inviare il webhook o l'email deve fallire. `app record --effects http,smtp` (o `--effect-env WEBHOOK_URL=http-url`) punta l'applicazione verso sostituti locali che registrano ogni chiamata e ogni email in uscita, e `--db-dump "sqlite3 app.db .dump"` registra il database dopo ogni richiesta; il replay controlla che il port faccia lo stesso.
+
+**L'originale continua a cambiare?** `app drift` riesegue l'originale contro la sua registrazione ed elenca ciò che ora risponde diversamente, e la [GitHub Action](install.md#in-ci) esegue `gate` a ogni push.
+
+**Decidi tu.** Quando correggi il comportamento del port, `rules --add "<rule>"` lo conserva, e ogni prompt successivo per l'agente lo include. Tutto ciò che rust-anything scrive sta in `<repo>/rust/`.
+
 **Report o migrazione, scegli tu.** `analyze` e `profile` si limitano a riferire: un piano ordinato di cosa portare e di cosa è caldo sotto un carico reale. Sono comandi normali, quindi il report non costa token. `go` migra un'unità: crea il ponte verso la funzione più calda, la registra, passa il port al tuo agente, poi lo compila, lo confronta e lo fa passare da `gate`, e lo attiva solo quando tutto corrisponde (TS/JS, Python e PowerShell; `disable` lo disattiva di nuovo).
 
 **Quanto dura un'esecuzione.** Un'esecuzione di `go` porta un'unità, con al massimo `--rounds` turni dell'agente (3 di default): uno per il port, poi uno per ogni diff o gate fallito. Un'intera applicazione è un'esecuzione per unità, quindi puoi fermarti dopo una qualsiasi.
@@ -111,6 +132,43 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 **Modello economico per il piano, modello potente per il port.** Il piano non richiede alcun modello. Per il port, passa un qualsiasi comando di agente: `rust-anything go --agent "claude --model <model>" -- <workload>`.
 
 **Agenti.** `rust-anything setup` lo aggiunge a Claude Code, Codex, Cursor, Gemini CLI e OpenCode. Qualsiasi altro client MCP può eseguire `rust-anything mcp`, e la skill si installa anche da sola con `npx skills add erkamyaman/rust-anything` (vedi [installazione](install.md)).
+
+## Linguaggi
+
+| Linguaggio | Stato | Controllato su |
+| --- | --- | --- |
+| TypeScript/JavaScript | Verificato | ESLint, Prettier, json-server, Fuse.js, vercel/ms |
+| Python | Verificato | `colorsys` di CPython (2,400/2,400 casi) |
+| Go | Verificato | `path` di Go (2,642/2,642) |
+| Ruby | Verificato | `shellwords` di Ruby 3.3 (1,617/1,617) |
+| Java | Verificato | JDK 21 dietro una facciata (4,492/4,492) |
+| C | Verificato | libavutil di ffmpeg, glibc |
+| C# | Verificato | Google.Protobuf (2,941/2,941) |
+| PHP | Verificato | PEAR `XML_Util` (1,838/1,838) |
+| Kotlin | Testato | le fixture di questo repository, Android incluso |
+| PowerShell | Testato | le fixture di questo repository |
+
+**Verificato** significa portato da cima a fondo su codice reale scritto da altri; **Testato** significa coperto dai test di questo repository su fixture. Ogni esecuzione, con date e modalità di controllo: [STATUS.md](STATUS.md).
+
+## Comandi
+
+| Comando | Cosa fa |
+| --- | --- |
+| `rust-anything go -- <workload>` | Profila, crea il ponte verso la funzione più calda, la registra, passa il port al tuo agente, lo fa passare da gate, lo attiva |
+| `rust-anything analyze <repo>` | Piano di migrazione ordinato: unità, prontezza, rischi, dipendenze |
+| `rust-anything profile <repo> -- <workload>` | Cosa è caldo sotto un carico reale, e cosa portare o raggruppare |
+| `rust-anything bridge <repo> <unit>` | Crate Rust con i binding per un'unità, stub in `src/port.rs` |
+| `rust-anything record <crate>` | Registra ciò che l'originale restituisce, lancia e stampa (`--inputs`, `--from-tests`, `--pin-clock`) |
+| `rust-anything diff <crate>` | Riesegue ogni caso registrato contro il modulo Rust |
+| `rust-anything bench <crate>` | Cronometra l'originale e Rust sui casi registrati, ponte incluso |
+| `rust-anything fuzz <crate>` | Input nuovi su entrambi i lati: ciò che la registrazione non ha coperto |
+| `rust-anything gate <crate>` | La definizione di finito |
+| `rust-anything enable` / `disable <crate>` | Passa i chiamanti a Rust, o li riporta indietro |
+| `rust-anything report <crate>` | `REPORT.md` e una scheda per una pull request |
+| `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Porta un'intera CLI o un intero server |
+| `rust-anything rules <repo> --add "<rule>"` | Comportamento che hai corretto, mantenuto da ogni port successivo |
+| `rust-anything map <repo>` | Ogni unità, il suo crate, i casi e l'ultimo diff |
+| `rust-anything setup` / `doctor` / `mcp` | Installazione per gli agenti, controllo dei runtime, server MCP |
 
 ## Licenza
 

@@ -86,9 +86,13 @@ Install Rust Anything with npm i -g rust-anything, then run rust-anything setup.
 Ýa-da özüňiz guruň:
 
 ```sh
-cargo install rust-anything   # or: npm install -g rust-anything
-rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CLI and OpenCode
+cargo install rust-anything   # ýa-da: npm install -g rust-anything
+rust-anything setup           # ony Claude Code, Codex, Cursor, Gemini CLI we OpenCode-a goşýar
+rust-anything doctor          # asyl programmaňyza gerek bolan işleýiş gurşawlaryny barlaýar, her biri üçin düzediş bilen
 ```
+
+> [!WARNING]
+> Ýazga almak asyl programmanyň hakyky kodyny işledýär. Göçürmäniň üstünde işläň we serweri synag maglumat bazasyna gönükdiriň.
 
 > [!TIP]
 > **Agentler üçin:** gurnamak ädimleri, ähli buýruklar we portlamak tertibi üçin [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) okaň.
@@ -104,6 +108,23 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 
 **Näme taýyn hasaplanýar.** Siziň testleriňiz däl-de, özüni alyp barşy. `record` asyl programmany döredilen we berlen girişler bilen işledýär we her çagyryşyň näme gaýtarýandygyny, näme zyňýandygyny we näme çap edýändigini saklaýar. Port `gate` geçende taýyn bolýar: ýazga alnan her ýagdaý gabat gelýär, şeýle hem fmt, clippy, `cargo test`, `unsafe` barlagy, stub barlagy we porta goýlan ýazga alnan jogaplaryň barlagy hem geçýär. Öz testleriňiz hem işleýär.
 
+**Testleriňiz ýagdaýlara öwrülýär.** `record --from-tests -- npx jest` (ýa-da `pytest`) asyl programmanyň öz test toplumyny işledýär we onuň birlige edýän her çagyryşyny ýazga alýar. `--pin-clock` iki tarapda hem sagady we tötänleýin sanlary berkidýär, şonuň üçin senä bagly kod hem gabat gelip biler.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/how-it-works-app-dark.svg">
+    <img src="assets/how-it-works-app-light.svg" width="880" alt="Tutuş programmany portlamak: analyze ony meýilleşdirýär, kararlary siz berýärsiňiz, app record onuň hakyky özüni alyp barşyny ýazga alýar, front door asyl programmanyň öňünde Rust-y işledýär, birlikler hiç zat asyl programma gaýdyp barmaýança birin-birin geçýär, soňra lift arassa Rust programmasyny galdyrýar">
+  </picture>
+</p>
+
+**Tutuş programmalar: CLI-ler we serwerler.** `app record` CLI-ni (çykyş kody, stdout, stderr, ýazylan faýllar) ýa-da `--http` bilen serweriň her soraga beren jogaplaryny ýazga alýar. `app front-door` `rust/app` döredýär: giriş nokadyny öz üstüne alýan we heniz portlanmadyk ähli zady asyl programma berýän Rust binar faýly. `app wire` birlikleri birin-birin geçirýär, fallback paýy nola düşýänçä `app replay` 100%-de durmaly, `app lift` bolsa arassa Rust programmasyny galdyrýar.
+
+**Gapdal täsirler hem hasaba alynýar.** Webhook-y ýa-da haty ibermegi unudan port şowsuz bolmaly. `app record --effects http,smtp` (ýa-da `--effect-env WEBHOOK_URL=http-url`) programmany her çykýan çagyryşy we haty ýazga alýan ýerli çalyşyjylara gönükdirýär, `--db-dump "sqlite3 app.db .dump"` bolsa her soragdan soň maglumat bazasyny ýazga alýar; replay portuň hem şony edýändigini barlaýar.
+
+**Asyl programma üýtgemegini dowam edýärmi?** `app drift` asyl programmany onuň ýazgysyna garşy gaýtadan işledýär we indi başgaça jogap berýänleri sanaýar, [GitHub Action](install.md#in-ci) bolsa her push-da `gate` işledýär.
+
+**Kararlary siz berýärsiňiz.** Portuň özüni alyp barşyny düzedeniňizde, `rules --add "<rule>"` ony saklaýar we soňky her agent prompty ony öz içine alýar. rust-anything-iň ýazýan ähli zady `<repo>/rust/` içinde ýerleşýär.
+
 **Hasabat ýa-da geçiş, özüňiz saýlaň.** `analyze` we `profile` diňe hasabat berýär: nämäni portlamalydygynyň tertipleşdirilen meýilnamasy we hakyky ýük astynda nämäniň iň köp wagt alýandygy. Bular ýönekeý buýruklar, şonuň üçin hasabat hiç hili token sarp etmeýär. `go` bir birligi geçirýär: iň gyzgyn funksiýa üçin köpri gurýar, ony ýazga alýar, porty agentiňize berýär, soňra ýygnaýar, deňeşdirýär we `gate` arkaly geçirýär, diňe hemme zat gabat gelende ony işe goýberýär (TS/JS, Python we PowerShell; `disable` ony ýene öçürýär).
 
 **Bir işletmek näçe wagt alýar.** Bir `go` işletmesi bir birligi portlaýar, iň köp `--rounds` agent aýlawy bilen (adaty ýagdaýda 3): biri port üçin, soňra şowsuz her diff ýa-da gate üçin birden. Tutuş programma her birlik üçin bir işletmeden ybarat, şonuň üçin islendik birinden soň durup bilersiňiz.
@@ -111,6 +132,43 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 **Meýilnama üçin arzan model, port üçin güýçli model.** Meýilnama model gerek däl. Port üçin islendik agent buýrugyny beriň: `rust-anything go --agent "claude --model <model>" -- <workload>`.
 
 **Agentler.** `rust-anything setup` ony Claude Code, Codex, Cursor, Gemini CLI we OpenCode-a goşýar. Islendik beýleki MCP müşderisi `rust-anything mcp` işledip biler, skill bolsa `npx skills add erkamyaman/rust-anything` arkaly aýratyn hem gurnalýar ([gurnamak](install.md) bölümine serediň).
+
+## Diller
+
+| Dil | Derejesi | Nämede barlanyldy |
+| --- | --- | --- |
+| TypeScript/JavaScript | Tassyklanan | ESLint, Prettier, json-server, Fuse.js, vercel/ms |
+| Python | Tassyklanan | CPython-yň `colorsys` moduly (2,400/2,400 ýagdaý) |
+| Go | Tassyklanan | Go-nyň `path` paketi (2,642/2,642) |
+| Ruby | Tassyklanan | Ruby 3.3-iň `shellwords` (1,617/1,617) |
+| Java | Tassyklanan | Fasadyň aňyrsyndaky JDK 21 (4,492/4,492) |
+| C | Tassyklanan | ffmpeg-iň libavutil-i, glibc |
+| C# | Tassyklanan | Google.Protobuf (2,941/2,941) |
+| PHP | Tassyklanan | PEAR `XML_Util` (1,838/1,838) |
+| Kotlin | Synalan | bu repozitoriýiň fixture-leri, Android hem goşulyp |
+| PowerShell | Synalan | bu repozitoriýiň fixture-leri |
+
+**Tassyklanan** başga biriniň ýazan hakyky kodunda başdan-aýak portlanandygyny aňladýar; **Synalan** bu repozitoriýiň fixture-lerdäki testleri bilen gurşalandygyny aňladýar. Her işletme, senesi we nähili barlanandygy bilen: [STATUS.md](STATUS.md).
+
+## Buýruklar
+
+| Buýruk | Näme edýär |
+| --- | --- |
+| `rust-anything go -- <workload>` | Profil düzýär, iň gyzgyn funksiýa üçin köpri gurýar, ony ýazga alýar, porty agentiňize berýär, gate arkaly geçirýär, işe goýberýär |
+| `rust-anything analyze <repo>` | Tertipleşdirilen geçiş meýilnamasy: birlikler, taýýarlyk, töwekgelçilikler, baglylyklar |
+| `rust-anything profile <repo> -- <workload>` | Hakyky ýük astynda nämäniň iň gyzgyndygy, nämäni portlamaly ýa-da toparlamaly |
+| `rust-anything bridge <repo> <unit>` | Bir birlik üçin baglanyşyklary bolan Rust crate, stub-lar `src/port.rs` içinde |
+| `rust-anything record <crate>` | Asyl programmanyň näme gaýtarýandygyny, näme zyňýandygyny we näme çap edýändigini ýazga alýar (`--inputs`, `--from-tests`, `--pin-clock`) |
+| `rust-anything diff <crate>` | Ýazga alnan her ýagdaýy Rust moduluna garşy gaýtadan işledýär |
+| `rust-anything bench <crate>` | Ýazga alnan ýagdaýlarda asyl programmanyň we Rust-yň wagtyny ölçeýär, köpri hem goşulyp |
+| `rust-anything fuzz <crate>` | Iki tarapdan hem täze girişler: ýazgynyň öz içine almadyk zatlary |
+| `rust-anything gate <crate>` | Taýynlygyň kesgitlemesi |
+| `rust-anything enable` / `disable <crate>` | Çagyryjylary Rust-a geçirýär ýa-da yzyna gaýtarýar |
+| `rust-anything report <crate>` | `REPORT.md` we pull request üçin kart |
+| `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Tutuş CLI-ni ýa-da serweri portlaýar |
+| `rust-anything rules <repo> --add "<rule>"` | Siziň düzeden özüni alyp barşyňyz, soňky her portda saklanýar |
+| `rust-anything map <repo>` | Her birlik, onuň crate-i, ýagdaýlary we soňky diff |
+| `rust-anything setup` / `doctor` / `mcp` | Agentler üçin gurnama, işleýiş gurşawlaryny barlamak, MCP serweri |
 
 ## Ygtyýarnama
 
