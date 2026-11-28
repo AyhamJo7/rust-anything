@@ -171,7 +171,8 @@ pub fn handle(request: &Value) -> Option<Value> {
                 "extensions": { "io.modelcontextprotocol/skills": {} },
             },
             "serverInfo": { "name": "rust-anything", "version": env!("CARGO_PKG_VERSION") },
-            "instructions": "Incremental TS/JS to Rust migration. Loop per unit: analyze -> bridge -> \
+            "instructions": "Rewrite TypeScript/JavaScript, Python, C, Go, Ruby, Java, Kotlin, PHP, C# or \
+                PowerShell apps in Rust, one verified piece at a time. Loop per unit: analyze -> bridge -> \
                 record -> (port src/port.rs) -> build -> diff -> shadow -> gate. Never mark a port done \
                 before gate passes. Read rust/RULES.md (`rules`) before porting; when the user corrects \
                 behavior, add it with `rules`.",
@@ -1394,6 +1395,23 @@ fn call(name: &str, args: &Value) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn initialize_instructions_name_every_language_not_only_ts_js() {
+        let init =
+            handle(&json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }))
+                .unwrap();
+        let instructions = init["result"]["instructions"].as_str().unwrap();
+
+        assert!(
+            !instructions.contains("TS/JS"),
+            "initialize instructions still narrow the supported languages: {instructions}"
+        );
+        assert_eq!(
+            instructions,
+            "Rewrite TypeScript/JavaScript, Python, C, Go, Ruby, Java, Kotlin, PHP, C# or PowerShell apps in Rust, one verified piece at a time. Loop per unit: analyze -> bridge -> record -> (port src/port.rs) -> build -> diff -> shadow -> gate. Never mark a port done before gate passes. Read rust/RULES.md (`rules`) before porting; when the user corrects behavior, add it with `rules`."
+        );
+    }
 
     #[test]
     fn a_string_argument_is_none_when_it_is_absent_or_null() {

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The MCP server's `initialize` instructions open with the CLI's own summary, naming all ten
+  languages, instead of "Incremental TS/JS to Rust migration" (#844, #866 by @jay23606).
 - `record --pin-clock` on a unit it does not cover names the language and the bridge in words
   (`this crate is TypeScript/JavaScript with the wasm-bindgen bridge`), not by their Rust names
   (`Ts with the Wasm bridge`) (#850, #865 by @jay23606).
