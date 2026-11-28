@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- C# dependency lists leave out build-only packages and `PrivateAssets="all"` references, which
+  never ship with the app (#884, #902 by @OnurrUgur).
 - `analyze --whole-app` reads a Python project's `install_requires` from `setup.cfg` (#881, #901
   by @OnurrUgur).
 - `analyze --whole-app` reads `gem "rspec", group: :test` and the other inline `group:` /
