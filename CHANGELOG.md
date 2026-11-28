@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `bridge` on a Python function with an optional list parameter (`paths: Sequence[str] = ()`)
+  writes a PyO3 crate that compiles. The binding was a plain `Bound` with a `=None` default,
+  which PyO3 rejects (`E0308: expected Bound<'_, PyAny>, found Option<_>`); it is `Option<Bound>`
+  now, as for other optional objects (#821).
 - `profile` on Java keeps the samples of every JVM the workload starts. Each one now writes its own
   recording (`profile-<pid>.jfr`) and `profile` reads them all, where they used to share one
   `profile.jfr` and the last JVM to exit replaced the others, so work done in a child JVM (a Gradle
