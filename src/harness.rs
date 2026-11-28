@@ -816,6 +816,10 @@ pub fn verdict(rows: &[BenchRow], lang: crate::lang::Lang) -> Verdict {
             "Ship the faster functions. Keep the slower ones in the original (`bridge --keep`) or move their callers to Rust too: {}.",
             slower.join(", ")
         )
+    } else if rows.len() == 1 {
+        "Do not ship this unit for speed: calling across costs more than the work this function does. \
+         Port a bigger unit (this function together with its callers), so one call does more work."
+            .to_string()
     } else {
         "Do not ship this unit for speed: calling across costs more than the work these functions do. \
          Port a bigger unit (these functions together with their callers), so one call does more work."
@@ -2962,6 +2966,17 @@ mod verdict_tests {
                 .advice
                 .starts_with("No call overhead")
         );
+    }
+
+    #[test]
+    fn advice_for_one_function_says_this_function() {
+        let v = verdict(&[row("twice", 0.38)], crate::lang::Lang::Ts);
+        assert!(
+            v.advice.contains("this function together with its callers"),
+            "{}",
+            v.advice
+        );
+        assert!(!v.advice.contains("these functions"), "{}", v.advice);
     }
 
     #[test]

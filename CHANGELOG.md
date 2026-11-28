@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `bench` on a unit with one function says `0 of 1 function at least 1.1x faster` and "this
+  function together with its callers", not "functions" and "these functions" (#856, #861 by
+  @jay23606).
 - `app record` counts a single trap in the singular: a recording with one trap said
   `(…, 1 traps)` (#854, #860 by @XiaoBinGan).
 - Java and Kotlin: `bridge` follows calls inside the unit. A function that calls one kept in the
