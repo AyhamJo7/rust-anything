@@ -62,7 +62,7 @@ fn gem_names(text: &str) -> (Vec<String>, Vec<String>) {
         if t.starts_with('#') {
             continue;
         }
-        if t.starts_with("group ") {
+        if t.starts_with("group ") || t.starts_with("group(") {
             group_at = Some(depth);
         }
         if opens_a_block(t) {
@@ -855,6 +855,26 @@ pub fn signature(f: &ExportedFn) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn grouped_gems_in_parenthesized_group_go_to_dev_deps() {
+        let gemfile = r#"source "https://rubygems.org"
+gem "rake"
+group(:test) do
+  gem "rspec"
+end
+group(:development, :test) do
+  gem "factory_bot"
+end
+group :test do
+  gem "minitest"
+end
+gem "rack"
+"#;
+        let (deps, dev) = gem_names(gemfile);
+        assert_eq!(deps, ["rake", "rack"]);
+        assert_eq!(dev, ["rspec", "factory_bot", "minitest"]);
+    }
 
     #[test]
     fn yard_takes_the_name_and_the_type_in_either_order() {

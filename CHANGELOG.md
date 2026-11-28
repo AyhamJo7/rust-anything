@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `analyze --whole-app` reads a Gemfile's `group(:test) do` (the parenthesized form) as a group,
+  so the gems inside it are development dependencies, as with `group :test do`. They were listed
+  as runtime dependencies (#835, #862 by @tony88pisa).
 - `bench` on a unit with one function says `0 of 1 function at least 1.1x faster` and "this
   function together with its callers", not "functions" and "these functions" (#856, #861 by
   @jay23606).
