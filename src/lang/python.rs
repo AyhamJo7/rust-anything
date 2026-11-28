@@ -465,14 +465,16 @@ pub fn resolve(from: &str, spec: &str, index: &HashMap<&str, usize>, ws: &Worksp
             return Resolution::File(i);
         }
     }
+    let segments: Vec<&str> = spec.split('.').collect();
     // A script's own folder is first on `sys.path`: a module beside the importing file is the
-    // workspace's, whatever the package roots are.
-    if let Some((dir, _)) = from.rsplit_once('/')
+    // workspace's, whatever the package roots are. A module compiled into the interpreter is
+    // found before any path is searched, so a sibling `sys.py` never answers `import sys`.
+    if !BUILT_IN.contains(&segments[0])
+        && let Some((dir, _)) = from.rsplit_once('/')
         && let Some(i) = try_module(&format!("{dir}/{path}"))
     {
         return Resolution::File(i);
     }
-    let segments: Vec<&str> = spec.split('.').collect();
     if let Some(known) = (2..=segments.len())
         .rev()
         .map(|k| segments[..k].join("."))
@@ -496,6 +498,21 @@ pub fn resolve(from: &str, spec: &str, index: &HashMap<&str, usize>, ws: &Worksp
         Resolution::External(top.to_lowercase().replace('_', "-"))
     }
 }
+
+/// Modules compiled into CPython on Linux, macOS and Windows (`sys.builtin_module_names`): the
+/// import system finds them before it looks at `sys.path`, so no file can stand in for them.
+/// Other standard-library modules are files, and a script's sibling of the same name wins.
+const BUILT_IN: &[&str] = &[
+    "sys",
+    "builtins",
+    "marshal",
+    "gc",
+    "time",
+    "itertools",
+    "errno",
+    "atexit",
+    "_thread",
+];
 
 /// The workspace's own `<top>.py` in some other folder, for an import no root and no sibling
 /// answered: the file when there is one, unresolved when several share the name. A name the
@@ -1554,7 +1571,19 @@ mod tests {
             ("a/util.py", 3),
             ("b/util.py", 4),
             ("tools/yaml.py", 5),
+            ("hooks/sys.py", 6),
+            ("hooks/json.py", 7),
         ]);
+        // A module compiled into the interpreter is found before `sys.path` is searched; any
+        // other standard-library module is a file, and the script's sibling comes first.
+        assert!(matches!(
+            resolve("hooks/stop_guard.py", "sys", &index, &ws),
+            Resolution::Stdlib
+        ));
+        assert!(matches!(
+            resolve("hooks/stop_guard.py", "json", &index, &ws),
+            Resolution::File(7)
+        ));
         // `import _kit` from a script in the same folder: the script's folder is on `sys.path`.
         assert!(matches!(
             resolve("hooks/stop_guard.py", "_kit", &index, &ws),
