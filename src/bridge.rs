@@ -104,6 +104,19 @@ pub fn set_end_state(crate_dir: &Path, end_state: EndState) -> Result<()> {
     manifest.save(crate_dir)
 }
 
+/// How a crate folder inside `root` names the repository: `../..` for `<root>/rust/x-rs`.
+/// `None` when the crate is outside it, where only an absolute path says where the repository
+/// is (and ties the manifest to one machine).
+fn relative_root(crate_dir: &Path, root: &Path) -> Option<PathBuf> {
+    let inside = crate_dir.strip_prefix(root).ok()?;
+    let depth = inside.components().count();
+    Some(if depth == 0 {
+        PathBuf::from(".")
+    } else {
+        PathBuf::from(vec![".."; depth].join("/"))
+    })
+}
+
 /// What `bridge` generated; every later step starts from it.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Manifest {
@@ -1582,6 +1595,16 @@ pub fn bridge(opts: &Options) -> Result<Outcome> {
         utf16,
         js: needs_js(&fns),
     };
+    // A crate inside its repository names the root relatively, so the committed manifest is
+    // the same in every clone and holds no path of this machine.
+    let mut on_disk = manifest.clone();
+    let absolute_dir = std::path::absolute(&crate_dir).unwrap_or_else(|_| crate_dir.clone());
+    if let Some(relative) = relative_root(
+        &absolute_dir.canonical().unwrap_or(absolute_dir),
+        &root.canonical().unwrap_or_else(|_| root.clone()),
+    ) {
+        on_disk.root = relative;
+    }
     let mut files: Vec<(String, String)> = vec![
         (
             "Cargo.toml".into(),
@@ -1597,7 +1620,7 @@ pub fn bridge(opts: &Options) -> Result<Outcome> {
         ("README.md".into(), readme(&manifest)),
         (
             MANIFEST.into(),
-            serde_json::to_string_pretty(&manifest)? + "\n",
+            serde_json::to_string_pretty(&on_disk)? + "\n",
         ),
     ];
     match kind {
@@ -2255,6 +2278,25 @@ mod tests {
             outcome.exports
         );
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_crate_inside_its_repository_names_the_root_relatively() {
+        let root = Path::new("/work/repo");
+        let relative = |crate_dir: &str| relative_root(Path::new(crate_dir), root);
+        assert_eq!(
+            relative("/work/repo/rust/x-rs"),
+            Some(PathBuf::from("../.."))
+        );
+        assert_eq!(relative("/work/repo/x-rs"), Some(PathBuf::from("..")));
+        assert_eq!(
+            relative("/work/repo/a/b/c-rs"),
+            Some(PathBuf::from("../../.."))
+        );
+        // At the root itself, and outside it, there is nothing portable to write.
+        assert_eq!(relative("/work/repo"), Some(PathBuf::from(".")));
+        assert_eq!(relative("/elsewhere/x-rs"), None);
+        assert_eq!(relative("/work/repo-two/x-rs"), None);
     }
 
     #[test]
