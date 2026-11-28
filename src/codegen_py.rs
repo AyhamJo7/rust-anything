@@ -737,6 +737,14 @@ fn extract_bytes(obj: &Bound<'_, PyAny>) -> Option<Result<Vec<u8>, String>> {
     None
 }
 
+thread_local! {
+    /// The instances being converted on this thread, outermost first. One that refers back to
+    /// itself, directly or through its fields, becomes `{"$cycle": true}`; the same instance
+    /// in two separate fields is converted twice.
+    static CONVERTING: std::cell::RefCell<Vec<usize>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
 /// A Python object as a JSON value.
 pub fn from_py(obj: &Bound<'_, PyAny>) -> Result<Value, String> {
     if obj.is_none() {
@@ -792,6 +800,23 @@ pub fn from_py(obj: &Bound<'_, PyAny>) -> Result<Value, String> {
             Ok(text) => json!({"$path": text}),
             Err(not_utf8) => json!({"$path": {"$bytes": not_utf8.into_bytes()}}),
         });
+    }
+    // An instance that keeps its fields in `__dict__` (a dataclass, a plain class): its class
+    // name and fields, the shape the recorder writes for it.
+    if let Ok(fields) = obj.getattr("__dict__")
+        && fields.is_instance_of::<PyDict>()
+    {
+        // An instance reached again through its own fields is written as the recorder writes
+        // it; without this the conversion would never end.
+        let id = obj.as_ptr() as usize;
+        if CONVERTING.with(|active| active.borrow().contains(&id)) {
+            return Ok(json!({"$cycle": true}));
+        }
+        CONVERTING.with(|active| active.borrow_mut().push(id));
+        let attrs = from_py(&fields);
+        CONVERTING.with(|active| active.borrow_mut().pop());
+        let name = obj.get_type().name().map_err(|e| e.to_string())?;
+        return Ok(json!({"$object": name.to_string(), "attrs": attrs?}));
     }
     Err(type_error(obj))
 }

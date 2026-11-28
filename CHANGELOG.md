@@ -36,6 +36,11 @@
   short name in `src/lib.rs`, which has none of the port's `use` lines, so the crate stopped
   compiling (`E0425: cannot find type Value in this scope`). Signatures are now read with the
   full path, unless the port defines a type of that name itself (#823, #824 by @AyhamJo7).
+- A PyO3 binding takes a dataclass (or any instance that keeps its fields in `__dict__`) where
+  the port declares `serde_json::Value`: it arrives as `{"$object": name, "attrs": {...}}`, the
+  shape `record` writes. The binding used to raise `TypeError: unsupported argument type`, which
+  `diff` did not show, because its driver passes the recorded dict whenever the original module
+  is not loaded (#825, #826 by @AyhamJo7).
 
 ## 5.0.2 (2026-11-28)
 
