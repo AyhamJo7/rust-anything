@@ -73,6 +73,7 @@ paths in what you commit. CI runs it on every file.
   - `tests/library.rs`: whole-library ports.
   - `tests/effects.rs`: side effects (mail sent, rows written) that make a replay fail even when
     the output matches.
+  - `tests/mime.rs`: mail headers and parts decoded for recording, in windows-1252 and Latin-1.
   - `tests/fuzz.rs`: `fuzz` and `record --pin-clock`.
   - `tests/sandbox.rs`: `record --sandbox` and `app record --sandbox` (no network, read-only
     source tree); skipped where bubblewrap or sandbox-exec cannot run.

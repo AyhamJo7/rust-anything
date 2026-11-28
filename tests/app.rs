@@ -1166,6 +1166,42 @@ fn app_record_without_examples_and_a_timeout_counts_no_no_arguments_run() {
     assert_eq!(parsed["timed_out"][0], "no-args", "{printed_json}");
 }
 
+#[cfg(unix)]
+#[test]
+fn app_replay_counts_a_case_with_two_differences_once() {
+    if !common::have("python3") {
+        return;
+    }
+    let repo = one_off(
+        "two-differences-one-case",
+        &[("cli.py", "import sys\nprint(\"args:\", sys.argv[1:])\n")],
+    );
+    let bin = env!("CARGO_BIN_EXE_rust-anything");
+    let recorded = Command::new(bin)
+        .args(["app", "record", ".", "--", "python3", "cli.py"])
+        .current_dir(&repo)
+        .output()
+        .unwrap();
+    assert!(recorded.status.success(), "{recorded:?}");
+    // `false` exits 1 with no output, so the one case differs in its status and its stdout.
+    let replayed = Command::new(bin)
+        .args(["app", "replay", ".", "--build", "false"])
+        .current_dir(&repo)
+        .output()
+        .unwrap();
+    let printed = String::from_utf8_lossy(&replayed.stdout).into_owned();
+    std::fs::remove_dir_all(&repo).unwrap();
+    assert!(!replayed.status.success(), "{replayed:?}");
+    assert!(printed.starts_with("0/1 cases passed"), "{printed}");
+    assert!(
+        printed.contains("2 distinct differences in 1 case:"),
+        "{printed}"
+    );
+    assert!(!printed.contains("in 2 cases"), "{printed}");
+    assert!(printed.contains("- no-args: status"), "{printed}");
+    assert!(printed.contains("stdout"), "{printed}");
+}
+
 #[test]
 fn a_written_file_named_by_a_normalized_value_replays() {
     if !common::have("node") {

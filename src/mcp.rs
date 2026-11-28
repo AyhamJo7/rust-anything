@@ -1248,6 +1248,8 @@ fn call(name: &str, args: &Value) -> Result<Value> {
                 !(partial && (!only.is_empty() || force)),
                 "`partial` cannot be combined with `only` or `force`"
             );
+            let manifest = bridge::Manifest::load(&crate_dir)?;
+            crate::enable::supported(&manifest)?;
             let diff_opts = harness::DiffOptions {
                 crate_dir: &crate_dir,
                 module: None,

@@ -808,11 +808,12 @@ enum AppCmd {
 }
 
 /// `3 distinct differences in 41 cases:` and a line per difference, most cases first.
-fn say_groups(groups: &[rust_anything::mismatch::Group]) {
+/// `cases` is the number of distinct failing cases: one case can differ in two ways, so it
+/// cannot be summed from the groups.
+fn say_groups(groups: &[rust_anything::mismatch::Group], cases: usize) {
     if groups.is_empty() {
         return;
     }
-    let cases: usize = groups.iter().map(|g| g.cases).sum();
     say!(
         "{} in {}:",
         counted(groups.len(), "distinct difference"),
@@ -833,7 +834,7 @@ fn say_replay(replay: &app::ReplayOutcome) {
             f.total
         );
     }
-    say_groups(&replay.groups);
+    say_groups(&replay.groups, replay.failures.len());
     for f in replay.failures.iter().take(20) {
         let fields: Vec<String> = f
             .problems
@@ -1271,7 +1272,7 @@ fn run() -> Result<ExitCode> {
                 if !d.missing.is_empty() {
                     say!("Missing exports: {}", d.missing.join(", "));
                 }
-                say_groups(&d.groups);
+                say_groups(&d.groups, d.mismatches.len());
                 for m in &d.mismatches {
                     if m.get("case").is_some() {
                         say!(
@@ -1502,6 +1503,9 @@ fn run() -> Result<ExitCode> {
             force,
             json,
         } => {
+            // An unsupported crate gets the shadow-module error before any build or diff.
+            let manifest = bridge::Manifest::load(&crate_dir)?;
+            rust_anything::enable::supported(&manifest)?;
             let diff_opts = harness::DiffOptions {
                 crate_dir: &crate_dir,
                 module: None,
@@ -2054,7 +2058,7 @@ fn run_app(command: AppCmd) -> Result<ExitCode> {
                 say!("{}", serde_json::to_string_pretty(&outcome)?);
             } else {
                 say!("{}/{} requests matched", outcome.matched, outcome.requests);
-                say_groups(&outcome.groups);
+                say_groups(&outcome.groups, outcome.mismatches.len());
                 if !outcome.mismatches.is_empty() {
                     say!("Log: {}", outcome.log.display());
                 }

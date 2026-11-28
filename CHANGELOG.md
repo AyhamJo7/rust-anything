@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- HTTP reads behind `app record`, `app replay` and `app shadow` retry a read that a signal
+  interrupts (`Interrupted system call`) until the request's deadline, where one interrupted read
+  used to fail the case with `no response: Interrupted system call` (#912 by @abiramcodes).
+- `analyze --whole-app` reads a Gemfile group written with braces (`group :test { ... }` or
+  `group(:test) { ... }`) as a group; its closing `}` never closed it before, so every later gem
+  was read as a development dependency (#875, #912 by @abiramcodes).
+- `disable` lists only the functions the removed block had switched on: after `enable --only add`
+  it said `greet` was back in the original too, though it was never on (#832, #912 by @abiramcodes).
+- `enable` on a language it cannot switch in place (Go, C and the others) gives the shadow-module
+  error at once, instead of building, diffing and asking for the cases to pass (#837, #912 by @abiramcodes).
+- `record --module` and `diff --module` refuse a crate that is not TS/JS before anything runs
+  (#833, #912 by @abiramcodes).
+- PowerShell `<# ... #>` comment-based help no longer counts as lines of code in `analyze`, `map`
+  and `gate`'s size check (#834, #912 by @abiramcodes).
+- Mail recorded with `--effects smtp` decodes `windows-1252` and `cp1252` as windows-1252, so `€`,
+  `“` and `”` are no longer stored as control characters; a header with multibyte text next to an
+  encoded word no longer panics the decoder (#836, #912 by @abiramcodes).
+- `rules` on a folder that does not exist fails with `no folder <path>` and creates nothing; the
+  MCP `rules` tool checks the same way (#831, #912 by @abiramcodes).
+- `diff`, `app replay` and `app shadow` count distinct failing cases in their `N distinct
+  differences in M cases:` line, so one case that differs in two ways is one case (#830, #912 by @abiramcodes).
 - The sandbox environment test compares variables by name and no longer prints the environment
   when it fails, so a failing run cannot show tokens (#910, #911 by @AyhamJo7).
 - `app record` without examples or inputs names its one run in the summary ("1 run with no
