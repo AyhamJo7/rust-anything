@@ -363,6 +363,10 @@ fn pyo3_path_bridge_takes_and_returns_pathlib_paths() {
              assert isinstance(out, Path) and out == Path('a/b.txt'), out\n\
              assert m.stem_of(PurePosixPath('x/y.tar.gz')) == 'y.tar'\n\
              assert m.maybe(None) is None\n\
+             import os\n\
+             if os.name == 'posix':\n\
+             \x20   odd = Path(os.fsdecode(b'bad-\\xff.txt'))\n\
+             \x20   assert m.same(odd) == odd, m.same(odd)\n\
              try:\n\
              \x20   m.stem_of('a.txt')\n\
              except TypeError as error:\n\

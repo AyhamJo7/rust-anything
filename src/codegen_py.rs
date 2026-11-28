@@ -791,17 +791,50 @@ pub fn from_py(obj: &Bound<'_, PyAny>) -> Result<Value, String> {
     Err(type_error(obj))
 }
 
-/// The text of an `os.PathLike` object (`pathlib.Path` and friends); a `str` is not a path.
-fn extract_path(obj: &Bound<'_, PyAny>) -> Option<String> {
+/// The file-system bytes of an `os.PathLike` object (`pathlib.Path` and friends), from
+/// `os.fsencode`, so a name that is not valid Unicode keeps its bytes. A `str` is not a path.
+fn path_bytes(obj: &Bound<'_, PyAny>) -> Option<Vec<u8>> {
     let os = obj.py().import("os").ok()?;
     if !obj.is_instance(&os.getattr("PathLike").ok()?).ok()? {
         return None;
     }
-    os.getattr("fspath").ok()?.call1((obj,)).ok()?.extract::<String>().ok()
+    let encoded = os.getattr("fsencode").ok()?.call1((obj,)).ok()?;
+    Some(encoded.cast::<PyBytes>().ok()?.as_bytes().to_vec())
+}
+
+/// The text of an `os.PathLike` object, for a path inside a JSON value.
+fn extract_path(obj: &Bound<'_, PyAny>) -> Option<String> {
+    path_bytes(obj).map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
 }
 
 fn new_path(py: Python<'_>, text: &str) -> PyResult<Py<PyAny>> {
     Ok(py.import("pathlib")?.getattr("Path")?.call1((text,))?.unbind())
+}
+
+#[cfg(unix)]
+fn path_from_bytes(bytes: Vec<u8>) -> std::path::PathBuf {
+    use std::os::unix::ffi::OsStringExt;
+    std::ffi::OsString::from_vec(bytes).into()
+}
+
+#[cfg(not(unix))]
+fn path_from_bytes(bytes: Vec<u8>) -> std::path::PathBuf {
+    String::from_utf8_lossy(&bytes).into_owned().into()
+}
+
+/// A `pathlib.Path` for a Rust path. On Unix the bytes go through `os.fsdecode`, so a name
+/// that is not UTF-8 comes back as the same file name, not with U+FFFD in it.
+#[cfg(unix)]
+fn path_to_py(py: Python<'_>, path: &std::path::Path) -> PyResult<Py<PyAny>> {
+    use std::os::unix::ffi::OsStrExt;
+    let bytes = PyBytes::new(py, path.as_os_str().as_bytes());
+    let text = py.import("os")?.getattr("fsdecode")?.call1((bytes,))?;
+    Ok(py.import("pathlib")?.getattr("Path")?.call1((text,))?.unbind())
+}
+
+#[cfg(not(unix))]
+fn path_to_py(py: Python<'_>, path: &std::path::Path) -> PyResult<Py<PyAny>> {
+    new_path(py, &path.to_string_lossy())
 }
 
 /// A structured argument, converted to the port's parameter type.
@@ -917,13 +950,13 @@ impl ToPy for Vec<u8> {
 
 impl FromPy for std::path::PathBuf {
     fn from_py(obj: &Bound<'_, PyAny>) -> Result<Self, String> {
-        extract_path(obj).map(Self::from).ok_or_else(|| type_error(obj))
+        path_bytes(obj).map(path_from_bytes).ok_or_else(|| type_error(obj))
     }
 }
 
 impl ToPy for std::path::PathBuf {
     fn to_py(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        new_path(py, &self.to_string_lossy())
+        path_to_py(py, self)
     }
 }
 

@@ -263,8 +263,11 @@ def enc(v, stack=()):
         # would call its __float__.
         return {"$float": float.__repr__(v)} if v.is_integer() else v
     if isinstance(v, os.PathLike):
-        # A path is its text: two different paths must not record as the same value.
-        return {"$path": os.fspath(v)}
+        # A path is its text: two different paths must not record as the same value. A name the
+        # file system could not decode holds surrogates, which the UTF-8 cases file cannot store:
+        # those are written as backslash escapes, the same way for the original and the port.
+        text = os.fsdecode(v)
+        return {"$path": text.encode("utf-8", "backslashreplace").decode("utf-8")}
     if any(v is s for s in stack):
         return {"$cycle": True}
     stack = stack + (v,)
