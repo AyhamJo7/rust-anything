@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `fuzz --keep` refuses to append kept cases that hold the value of a secret-looking environment
+  variable, as `record` does, and leaves the recording as it was (#888, #897 by @OnurrUgur).
 - The website's command help (`cli-help.json`) is regenerated from the 5.0.2 build, so it shows
   Swift and the `log` command (#845, #922 by @aaas72).
 - `gate` on a unit crate that `app lift` has made part of a pure Rust app runs the checks that
