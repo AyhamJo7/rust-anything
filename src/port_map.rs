@@ -34,6 +34,15 @@ fn is_zero(n: &usize) -> bool {
     *n == 0
 }
 
+/// `Kind`'s own serde name (`"c-abi"` for `Kind::CAbi`), matching the manifest and `bridge
+/// --kind`, rather than `Debug`'s `"cabi"`.
+fn kind_str(kind: crate::bridge::Kind) -> String {
+    serde_json::to_value(kind)
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_else(|| format!("{kind:?}").to_lowercase())
+}
+
 #[derive(Debug, Serialize)]
 pub struct Port {
     pub unit: String,
@@ -245,7 +254,7 @@ fn port(root: &Path, dir: &Path, m: &Manifest, log: &[crate::audit::Entry]) -> P
         last_change: crate::audit::last_switch(log, &logged_dir, &m.crate_name).cloned(),
         crate_dir,
         language: format!("{:?}", m.language).to_lowercase(),
-        kind: format!("{:?}", m.kind).to_lowercase(),
+        kind: kind_str(m.kind),
         in_rust,
         kept_in_original,
         cases,

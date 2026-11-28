@@ -98,6 +98,41 @@ fn map_lists_ports_and_marks_upstream_changes() {
 }
 
 #[test]
+fn map_json_names_a_c_abi_port_the_way_bridge_and_the_manifest_do() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/mini");
+    let repo = std::env::temp_dir().join(format!("rust-anything-map-cabi-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&repo);
+    copy_dir(&fixture, &repo);
+    let unit = "packages/a/src/util.ts";
+    let crate_dir = repo.join("rust/util-rs");
+    bridge::bridge(&bridge::Options {
+        root: &repo,
+        unit,
+        kind: Some(bridge::Kind::CAbi),
+        out: Some(crate_dir.clone()),
+        name: None,
+        force: false,
+        keep: Vec::new(),
+        lang: None,
+        batch: Vec::new(),
+        as_json: Vec::new(),
+        allocator: Default::default(),
+    })
+    .unwrap();
+
+    let manifest = std::fs::read_to_string(crate_dir.join(bridge::MANIFEST)).unwrap();
+    assert!(manifest.contains("\"c-abi\""), "{manifest}");
+
+    let map = port_map::map(&repo, &[]).unwrap();
+    assert_eq!(map.ports.len(), 1, "{map:#?}");
+    // Not "cabi" (Kind::CAbi's Debug, lowercased): the same "c-abi" bridge --kind takes and the
+    // manifest writes.
+    assert_eq!(map.ports[0].kind, "c-abi");
+
+    std::fs::remove_dir_all(&repo).unwrap();
+}
+
+#[test]
 fn map_names_a_crate_folder_whose_manifest_does_not_parse() {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/mini");
     let repo = std::env::temp_dir().join(format!("rust-anything-map-bad-{}", std::process::id()));
