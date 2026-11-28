@@ -50,6 +50,7 @@ fn record(dir: &Path, count: usize) -> harness::RecordOutcome {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap()
 }
@@ -138,6 +139,30 @@ fn fuzz_finds_a_mismatch_the_recording_missed_and_keep_makes_gate_fail() {
         before.lines().count() + usize::try_from(failed).unwrap()
     );
     assert!(!behavior(&dir), "gate checks the kept cases");
+
+    // Each gate appended its result to the repository's audit log.
+    let log = rust_anything::audit::read(&repo).unwrap();
+    let gates: Vec<_> = log.entries.iter().filter(|e| e.change == "gate").collect();
+    assert_eq!(gates.len(), 2, "{:?}", log.entries);
+    assert!(
+        gates
+            .iter()
+            .all(|e| e.crate_dir.as_deref() == Some("rust/unit"))
+    );
+    let cases = |e: &rust_anything::audit::Entry| e.cases.map(|c| (c.matched, c.total));
+    let (matched, total) = cases(gates[0]).unwrap();
+    assert_eq!(matched, total, "{:?}", gates[0]);
+    let (matched, total) = cases(gates[1]).unwrap();
+    assert_eq!(
+        total - matched,
+        usize::try_from(failed).unwrap(),
+        "{:?}",
+        gates[1]
+    );
+    let result = gates[1].gate.as_ref().unwrap();
+    assert!(!result.passed);
+    assert!(result.failed.iter().any(|f| f == "behavior"), "{result:?}");
+    assert!(result.checks_passed < result.checks);
 
     // Also check the printed line once without --json.
     std::fs::write(dir.join(harness::CASES), &before).unwrap();

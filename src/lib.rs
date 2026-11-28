@@ -12,6 +12,7 @@ pub mod android;
 pub mod android_device;
 pub mod app;
 pub mod app_shadow;
+pub mod audit;
 pub mod bridge;
 pub mod cache;
 pub mod card;

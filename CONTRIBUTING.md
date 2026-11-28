@@ -69,6 +69,8 @@ paths in what you commit. CI runs it on every file.
   - `tests/effects.rs`: side effects (mail sent, rows written) that make a replay fail even when
     the output matches.
   - `tests/fuzz.rs`: `fuzz` and `record --pin-clock`.
+  - `tests/sandbox.rs`: `record --sandbox` and `app record --sandbox` (no network, read-only
+    source tree); skipped where bubblewrap or sandbox-exec cannot run.
   - `tests/profile.rs`: `profile` on real Python (cProfile) and Node (`--cpu-prof`) workloads.
   - `tests/switch.rs`: `enable` and `disable` on real source files.
   - `tests/package.rs`: `package` layouts and an installed napi port.

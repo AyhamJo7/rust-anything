@@ -93,6 +93,7 @@ rust-anything doctor          # orijinalinizin ihtiyaç duyduğu çalışma orta
 
 > [!WARNING]
 > Kayıt, orijinalin gerçek kodunu çalıştırır. Bir kopya üzerinde çalışın ve sunucuyu bir test veritabanına yönlendirin.
+> `record --sandbox` ve `app record --sandbox` onu ağ erişimi olmadan, repo salt okunur hâlde ve CPU ile bellek sınırlarıyla çalıştırır (Linux'ta bubblewrap, macOS'te sandbox-exec; `doctor` bunun olup olmadığını kontrol eder).
 
 > [!TIP]
 > **Ajanlar:** kurulum adımları, tüm komutlar ve port etme akışı için [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) dosyasını okuyun.
@@ -168,6 +169,7 @@ rust-anything doctor          # orijinalinizin ihtiyaç duyduğu çalışma orta
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Bütün bir CLI'ı ya da sunucuyu port eder |
 | `rust-anything rules <repo> --add "<rule>"` | Düzelttiğiniz davranış, sonraki her portta korunur |
 | `rust-anything map <repo>` | Her birim, crate'i, vakaları ve son diff'i |
+| `rust-anything log <repo>` | Her devreye alma ya da kapatma, her wire, lift ve gate sonucu, `rust/audit.jsonl` dosyasından |
 | `rust-anything setup` / `doctor` / `mcp` | Ajanlar için kurulum, çalışma ortamı kontrolü, MCP sunucusu |
 
 ## Lisans

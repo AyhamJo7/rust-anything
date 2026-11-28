@@ -2,7 +2,7 @@
 
 use std::ffi::OsStr;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 
@@ -158,6 +158,11 @@ fn file_exists_as_executable(path: &Path) -> bool {
 /// Used to distinguish a missing executable from `ENOENT` caused by a missing shebang or ELF
 /// interpreter on Linux.
 fn program_exists(cmd: &Command) -> bool {
+    find_program(cmd).is_some()
+}
+
+/// Where `cmd`'s executable is: its explicit path, or the first match on its effective `PATH`.
+fn find_program(cmd: &Command) -> Option<PathBuf> {
     let program = cmd.get_program();
     let prog_str = program.to_string_lossy();
     let base = cmd
@@ -166,15 +171,14 @@ fn program_exists(cmd: &Command) -> bool {
         .or_else(|| std::env::current_dir().ok());
     if prog_str.contains('/') || prog_str.contains('\\') {
         let path = Path::new(program);
-        return if path.is_absolute() {
-            file_exists_as_executable(path)
+        let path = if path.is_absolute() {
+            path.to_path_buf()
         } else {
-            base.is_some_and(|dir| file_exists_as_executable(&dir.join(path)))
+            base?.join(path)
         };
+        return file_exists_as_executable(&path).then_some(path);
     }
-    let Some(paths) = effective_env(cmd, "PATH") else {
-        return false;
-    };
+    let paths = effective_env(cmd, "PATH")?;
     // On Unix, `Command::spawn` changes into `current_dir` before searching `PATH`; on Windows,
     // `resolve_exe` resolves relative `PATH` entries against the parent's working directory.
     let path_base = if cfg!(windows) {
@@ -182,7 +186,7 @@ fn program_exists(cmd: &Command) -> bool {
     } else {
         base
     };
-    std::env::split_paths(&paths).any(|dir| {
+    std::env::split_paths(&paths).find_map(|dir| {
         let resolved = if dir.is_absolute() {
             dir
         } else if let Some(cwd) = &path_base {
@@ -190,7 +194,8 @@ fn program_exists(cmd: &Command) -> bool {
         } else {
             dir
         };
-        file_exists_as_executable(&resolved.join(program))
+        let path = resolved.join(program);
+        file_exists_as_executable(&path).then_some(path)
     })
 }
 
@@ -315,6 +320,206 @@ fn shown(cmd: &Command) -> String {
         .join(" ")
 }
 
+/// Where `record --sandbox` and `app record --sandbox` run the original: no network, its
+/// repository read-only, and CPU and memory limits. bubblewrap on Linux (the whole file system
+/// read-only apart from `scratch` and `writable`), sandbox-exec on macOS (writes refused in the
+/// repository only, and no memory limit, which macOS does not enforce).
+pub struct Sandbox<'a> {
+    /// The original's repository: read, never written.
+    pub read_only: &'a Path,
+    /// A folder of the run's own it may write to, also its `TMPDIR` on Linux.
+    pub scratch: &'a Path,
+    /// More folders it may write to (the recording's work folder).
+    pub writable: &'a [&'a Path],
+    /// Keep loopback open: a server rust-anything sends requests to, or local effect sinks.
+    pub loopback: bool,
+}
+
+/// The command `doctor` and a missing sandbox tool give to install it.
+pub(crate) const SANDBOX_INSTALL: &str = if cfg!(target_os = "macos") {
+    "sandbox-exec ships with macOS at /usr/bin/sandbox-exec"
+} else {
+    "sudo apt install bubblewrap  (or `sudo dnf install bubblewrap`, `sudo pacman -S bubblewrap`)"
+};
+
+/// `RUST_ANYTHING_SANDBOX_CPU` seconds of CPU time per process, 600 by default.
+fn sandbox_cpu() -> u64 {
+    std::env::var("RUST_ANYTHING_SANDBOX_CPU")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .filter(|&v| v > 0)
+        .unwrap_or(600)
+}
+
+/// `RUST_ANYTHING_SANDBOX_MEMORY_MB` of data memory per process, 4096 by default (Linux).
+fn sandbox_memory_mb() -> u64 {
+    std::env::var("RUST_ANYTHING_SANDBOX_MEMORY_MB")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .filter(|&v| v > 0)
+        .unwrap_or(4096)
+}
+
+pub(crate) fn sandbox_tool() -> Result<PathBuf> {
+    if cfg!(target_os = "macos") {
+        let tool = PathBuf::from("/usr/bin/sandbox-exec");
+        if !tool.is_file() {
+            bail!("`--sandbox` needs sandbox-exec, which is missing: {SANDBOX_INSTALL}");
+        }
+        return Ok(tool);
+    }
+    if !cfg!(target_os = "linux") {
+        bail!(
+            "`--sandbox` runs on Linux (bubblewrap) and macOS (sandbox-exec), not on this system; \
+             record without it"
+        );
+    }
+    find_program(&Command::new("bwrap")).with_context(|| {
+        format!(
+            "`--sandbox` needs bubblewrap (`bwrap`), which is not on PATH; install it with \
+             `{SANDBOX_INSTALL}`, or run `rust-anything doctor`"
+        )
+    })
+}
+
+impl Sandbox<'_> {
+    /// `cmd` (its program, arguments, environment and working directory) run inside the sandbox,
+    /// with the environment it gets unsandboxed: `env` puts back the variables the shell that
+    /// sets the limits changes (`PWD`, `OLDPWD`, `SHLVL`, `_`). Call it once the environment is
+    /// set, with `inherit_env` false when the program must get only what `cmd` sets; give the
+    /// result its stdio afterwards.
+    pub fn wrap(&self, cmd: &Command, inherit_env: bool) -> Result<Command> {
+        let tool = sandbox_tool()?;
+        if self.loopback && cfg!(target_os = "linux") {
+            bail!(
+                "`--sandbox` gives the original a network of its own on Linux (bubblewrap's \
+                 --unshare-net), so no loopback is shared with rust-anything: it cannot reach a \
+                 server's port (`--http`) or let the original reach local effect sinks \
+                 (`--effects`). Record those without `--sandbox`; on macOS loopback stays open"
+            );
+        }
+        let program = find_program(cmd).ok_or_else(|| {
+            spawn_error(
+                cmd,
+                &format!("`{}`", shown(cmd)),
+                std::io::Error::from(std::io::ErrorKind::NotFound),
+            )
+        })?;
+        let real = |p: &Path| {
+            use crate::walk::Canonical as _;
+            p.canonical()
+                .with_context(|| format!("resolving {}", p.display()))
+        };
+        let read_only = real(self.read_only)?;
+        let scratch = real(self.scratch)?;
+        let writable = self
+            .writable
+            .iter()
+            .map(|p| real(p))
+            .collect::<Result<Vec<_>>>()?;
+        let mut out = Command::new(&tool);
+        if cfg!(target_os = "macos") {
+            let mut profile = String::from(
+                "(version 1)(allow default)(deny network*)(deny file-write* (subpath (param \"REPO\")))",
+            );
+            if self.loopback {
+                profile.push_str(
+                    "(allow network-outbound (remote ip \"localhost:*\"))\
+                     (allow network-inbound (local ip \"localhost:*\"))\
+                     (allow network-bind (local ip \"localhost:*\"))",
+                );
+            }
+            out.arg("-D").arg(format!("REPO={}", read_only.display()));
+            for (i, dir) in std::iter::once(&scratch).chain(&writable).enumerate() {
+                profile.push_str(&format!("(allow file-write* (subpath (param \"W{i}\")))"));
+                out.arg("-D").arg(format!("W{i}={}", dir.display()));
+            }
+            out.arg("-p").arg(profile);
+        } else {
+            out.args(["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc"]);
+            for dir in std::iter::once(&scratch).chain(&writable) {
+                out.arg("--bind").arg(dir).arg(dir);
+            }
+            out.args([
+                "--unshare-net",
+                "--unshare-pid",
+                "--unshare-ipc",
+                "--die-with-parent",
+                "--new-session",
+            ]);
+            out.arg("--setenv").arg("TMPDIR").arg(&scratch);
+            if let Some(dir) = cmd.get_current_dir() {
+                out.arg("--chdir").arg(dir);
+            }
+            out.arg("--");
+        }
+        let mut script = format!("ulimit -t {}", sandbox_cpu());
+        if cfg!(target_os = "linux") {
+            script.push_str(&format!(" && ulimit -d {}", sandbox_memory_mb() * 1024));
+        }
+        script.push_str(" || exit 126; exec /usr/bin/env \"$@\"");
+        out.args(["/bin/sh", "-c", &script, "sh"]);
+        for key in ["PWD", "OLDPWD", "SHLVL", "_"] {
+            let value = if inherit_env {
+                effective_env(cmd, key)
+            } else {
+                cmd.get_envs()
+                    .find(|(k, _)| *k == OsStr::new(key))
+                    .and_then(|(_, v)| v.map(OsStr::to_os_string))
+            };
+            match value {
+                Some(value) => {
+                    let mut set = std::ffi::OsString::from(format!("{key}="));
+                    set.push(value);
+                    out.arg(set)
+                }
+                None => out.args(["-u", key]),
+            };
+        }
+        out.arg(program).args(cmd.get_args());
+        if !inherit_env {
+            out.env_clear();
+        }
+        for (key, value) in cmd.get_envs() {
+            match value {
+                Some(value) => out.env(key, value),
+                None => out.env_remove(key),
+            };
+        }
+        if let Some(dir) = cmd.get_current_dir() {
+            out.current_dir(dir);
+        }
+        Ok(out)
+    }
+}
+
+/// Whether `--sandbox` can run here: what it runs with, or why not. Wraps `true` the way a
+/// recording is wrapped, so a bubblewrap that is installed but not allowed to make namespaces
+/// shows up here rather than mid-recording.
+pub fn sandbox_ready() -> Result<String, String> {
+    let tool = sandbox_tool().map_err(|e| format!("{e:#}"))?;
+    let dir = crate::app::temp_dir("sandbox-check").map_err(|e| format!("{e:#}"))?;
+    let sandbox = Sandbox {
+        read_only: &dir,
+        scratch: &dir,
+        writable: &[],
+        loopback: false,
+    };
+    let ran = sandbox
+        .wrap(Command::new("true").current_dir(&dir), true)
+        .and_then(|mut cmd| output(&mut cmd, QUICK));
+    let _ = std::fs::remove_dir_all(&dir);
+    match ran {
+        Ok(out) if out.success() => Ok(tool.display().to_string()),
+        Ok(out) => Err(format!(
+            "{} is installed but could not start a sandbox: {}",
+            tool.display(),
+            out.stderr_text().trim()
+        )),
+        Err(e) => Err(format!("{e:#}")),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -363,6 +568,29 @@ mod tests {
         .unwrap();
         assert_eq!(out.stdout.len(), KEEP);
         assert_eq!(out.stderr_text(), "err\n");
+    }
+
+    #[test]
+    fn a_sandboxed_program_gets_the_environment_it_gets_unsandboxed() {
+        if sandbox_ready().is_err() {
+            return;
+        }
+        let dir = crate::app::temp_dir("sandbox-env").unwrap();
+        let sandbox = Sandbox {
+            read_only: &dir,
+            scratch: &dir,
+            writable: &[],
+            loopback: false,
+        };
+        let env = |cmd: &mut Command| output(cmd, QUICK).unwrap().stdout_text();
+        let mut plain = Command::new("env");
+        plain.current_dir(&dir).env("FOO", "1").env_remove("HOME");
+        let inherited = env(&mut sandbox.wrap(&plain, true).unwrap());
+        let cleared = env(&mut sandbox.wrap(&plain, false).unwrap());
+        let unsandboxed = env(&mut plain);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(inherited, unsandboxed);
+        assert_eq!(cleared, "FOO=1\n");
     }
 
     #[test]

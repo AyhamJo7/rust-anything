@@ -233,6 +233,7 @@ fn pointer_arguments_cross_the_c_bridge() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     let cases = std::fs::read_to_string(dir.join("cases.jsonl")).unwrap();

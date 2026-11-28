@@ -95,6 +95,7 @@ rust-anything doctor          # ตรวจรันไทม์ที่โค
 
 > [!WARNING]
 > การบันทึกจะรันโค้ดจริงของต้นฉบับ ให้ทำงานบนสำเนา และชี้เซิร์ฟเวอร์ไปที่ฐานข้อมูลทดสอบ
+> `record --sandbox` และ `app record --sandbox` รันโดยไม่มีเครือข่าย รีโปเป็นแบบอ่านอย่างเดียว และจำกัด CPU กับหน่วยความจำ (bubblewrap บน Linux, sandbox-exec บน macOS; `doctor` ตรวจว่ามีหรือไม่)
 
 > [!TIP]
 > **สำหรับเอเจนต์:** อ่าน [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) เพื่อดูขั้นตอนติดตั้ง คำสั่งทั้งหมด และขั้นตอนการพอร์ต
@@ -170,6 +171,7 @@ rust-anything doctor          # ตรวจรันไทม์ที่โค
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | พอร์ตทั้ง CLI หรือทั้งเซิร์ฟเวอร์ |
 | `rust-anything rules <repo> --add "<rule>"` | พฤติกรรมที่คุณแก้ไว้ ถูกเก็บไว้ในการพอร์ตทุกครั้งหลังจากนั้น |
 | `rust-anything map <repo>` | ทุกยูนิต พร้อม crate เคส และ diff ล่าสุด |
+| `rust-anything log <repo>` | ทุกการเปิดหรือปิด และผลของ wire, lift และ gate ทุกครั้ง จาก `rust/audit.jsonl` |
 | `rust-anything setup` / `doctor` / `mcp` | ติดตั้งให้เอเจนต์ ตรวจรันไทม์ เซิร์ฟเวอร์ MCP |
 
 ## สัญญาอนุญาต

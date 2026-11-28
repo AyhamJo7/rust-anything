@@ -289,6 +289,7 @@ fn a_module_records_diffs_gates_and_switches_on() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert!(recorded.cases > 100, "{recorded:?}");
@@ -385,6 +386,7 @@ fn a_module_records_diffs_gates_and_switches_on() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert_eq!(

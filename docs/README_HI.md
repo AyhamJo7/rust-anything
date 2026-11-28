@@ -93,6 +93,7 @@ rust-anything doctor          # आपके मूल कोड को जि�
 
 > [!WARNING]
 > रिकॉर्डिंग मूल कोड को सच में चलाती है। एक कॉपी पर काम करें, और सर्वर को टेस्ट डेटाबेस से जोड़ें।
+> `record --sandbox` और `app record --sandbox` इसे बिना नेटवर्क, रिपॉज़िटरी को सिर्फ़ पढ़ने लायक रखकर और CPU व मेमोरी की सीमाओं के साथ चलाते हैं (Linux पर bubblewrap, macOS पर sandbox-exec; `doctor` इसकी जाँच करता है)।
 
 > [!TIP]
 > **एजेंट:** इंस्टॉल के चरण, सभी कमांड और पोर्टिंग का तरीका जानने के लिए [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) पढ़ें।
@@ -168,6 +169,7 @@ rust-anything doctor          # आपके मूल कोड को जि�
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | पूरी CLI या सर्वर पोर्ट करता है |
 | `rust-anything rules <repo> --add "<rule>"` | आपका सुधारा हुआ व्यवहार, बाद के हर पोर्ट में रखा जाता है |
 | `rust-anything map <repo>` | हर यूनिट, उसका crate, केस और आख़िरी diff |
+| `rust-anything log <repo>` | हर चालू या बंद करना, हर wire, lift और gate नतीजा, `rust/audit.jsonl` से |
 | `rust-anything setup` / `doctor` / `mcp` | एजेंटों के लिए इंस्टॉल, रनटाइम जाँच, MCP सर्वर |
 
 ## लाइसेंस

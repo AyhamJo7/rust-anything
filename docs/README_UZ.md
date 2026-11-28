@@ -93,6 +93,7 @@ rust-anything doctor          # asl dasturingizga kerak bo'lgan runtime'larni te
 
 > [!WARNING]
 > Yozib olish asl dasturning haqiqiy kodini ishga tushiradi. Nusxa ustida ishlang va serverni test ma'lumotlar bazasiga yo'naltiring.
+> `record --sandbox` va `app record --sandbox` uni tarmoqsiz, repozitoriyni faqat o'qish rejimida va CPU hamda xotira cheklovlari bilan ishga tushiradi (Linux'da bubblewrap, macOS'da sandbox-exec; `doctor` u bor-yo'qligini tekshiradi).
 
 > [!TIP]
 > **Agentlar:** o'rnatish qadamlari, barcha buyruqlar va portlash jarayoni uchun [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) ni o'qing.
@@ -168,6 +169,7 @@ rust-anything doctor          # asl dasturingizga kerak bo'lgan runtime'larni te
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Butun CLI yoki serverni portlaydi |
 | `rust-anything rules <repo> --add "<rule>"` | Siz tuzatgan xatti-harakat, keyingi har bir port saqlaydi |
 | `rust-anything map <repo>` | Har bir birlik, uning crate'i, holatlari va oxirgi diff |
+| `rust-anything log <repo>` | Har bir yoqish yoki o'chirish, har bir wire, lift va gate natijasi, `rust/audit.jsonl` ichidan |
 | `rust-anything setup` / `doctor` / `mcp` | Agentlar uchun o'rnatish, runtime'larni tekshirish, MCP server |
 
 ## Litsenziya

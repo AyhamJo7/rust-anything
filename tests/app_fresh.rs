@@ -66,6 +66,7 @@ fn record(repo: &Path) -> app::RecordOutcome {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap()
 }
@@ -198,6 +199,7 @@ fn a_case_that_reads_the_folder_keeps_the_snapshot_when_the_list_is_cleared() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
 

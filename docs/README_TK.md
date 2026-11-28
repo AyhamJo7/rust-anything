@@ -93,6 +93,7 @@ rust-anything doctor          # asyl programmaňyza gerek bolan işleýiş gurş
 
 > [!WARNING]
 > Ýazga almak asyl programmanyň hakyky kodyny işledýär. Göçürmäniň üstünde işläň we serweri synag maglumat bazasyna gönükdiriň.
+> `record --sandbox` we `app record --sandbox` ony torsuz, repozitoriýi diňe okalýan ýagdaýda we CPU hem-de ýat çäklendirmeleri bilen işledýär (Linux-da bubblewrap, macOS-da sandbox-exec; `doctor` onuň bardygyny barlaýar).
 
 > [!TIP]
 > **Agentler üçin:** gurnamak ädimleri, ähli buýruklar we portlamak tertibi üçin [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) okaň.
@@ -168,6 +169,7 @@ rust-anything doctor          # asyl programmaňyza gerek bolan işleýiş gurş
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Tutuş CLI-ni ýa-da serweri portlaýar |
 | `rust-anything rules <repo> --add "<rule>"` | Siziň düzeden özüni alyp barşyňyz, soňky her portda saklanýar |
 | `rust-anything map <repo>` | Her birlik, onuň crate-i, ýagdaýlary we soňky diff |
+| `rust-anything log <repo>` | Her işe goýbermek ýa-da öçürmek, her wire, lift we gate netijesi, `rust/audit.jsonl` içinden |
 | `rust-anything setup` / `doctor` / `mcp` | Agentler üçin gurnama, işleýiş gurşawlaryny barlamak, MCP serweri |
 
 ## Ygtyýarnama

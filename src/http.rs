@@ -656,8 +656,17 @@ impl Server {
             .current_dir(&cwd)
             .envs(sinks.iter().flat_map(crate::effects::Sinks::env))
             .env("PORT", port.to_string())
-            .env(app::FALLBACK_ENV, &log)
-            .stdin(Stdio::null())
+            .env(app::FALLBACK_ENV, &log);
+        if launch.sandbox {
+            cmd = crate::process::Sandbox {
+                read_only: repo,
+                scratch: &dir,
+                writable: &[],
+                loopback: true,
+            }
+            .wrap(&cmd, true)?;
+        }
+        cmd.stdin(Stdio::null())
             .stdout(std::fs::File::create(dir.join("stdout"))?)
             .stderr(std::fs::File::create(dir.join("stderr"))?);
         let mut child = cmd
@@ -971,6 +980,8 @@ pub(crate) struct Launch<'a> {
     pub(crate) ready: Duration,
     /// A request that must answer before the app counts as ready, e.g. `GET /health`.
     pub(crate) ready_request: Option<&'a str>,
+    /// Start it in a [`crate::process::Sandbox`] with loopback open (`app record --sandbox`).
+    pub(crate) sandbox: bool,
 }
 
 /// Starts a server on an auto-picked ephemeral port, retrying if another process claims the port
@@ -1803,6 +1814,7 @@ pub(crate) fn record(
         effects: config.effects.as_ref(),
         ready: ready_timeout(&http),
         ready_request: http.ready_request.as_deref(),
+        sandbox: opts.sandbox,
     };
     let one = run_all(&config.run, &launch, repo, fixed, &reqs, timeout)?;
     let two = run_all(&config.run, &launch, repo, fixed, &reqs, timeout)?;
@@ -2104,6 +2116,7 @@ pub(crate) fn replay(
         effects: config.effects.as_ref(),
         ready: ready_timeout(&http),
         ready_request: http.ready_request.as_deref(),
+        sandbox: false,
     };
     let answers = run_all(command, &launch, repo, fixed_port, &reqs, timeout)?;
     let mut outcome = ReplayOutcome {
@@ -2315,6 +2328,7 @@ mod tests {
             effects: None,
             ready_secs: None,
             ready_request: Some(ready_request),
+            sandbox: false,
         };
         assert!(merge_config(None, &opts("get /health")).is_err());
         let good = merge_config(None, &opts("GET /health")).unwrap().unwrap();
@@ -2341,6 +2355,7 @@ mod tests {
             effects: None,
             ready_secs,
             ready_request: None,
+            sandbox: false,
         };
         let old: HttpConfig = serde_json::from_str(r#"{"port":8080}"#).unwrap();
         assert_eq!(ready_timeout(&old), READY);
@@ -2376,6 +2391,7 @@ mod tests {
             effects: None,
             ready_secs: None,
             ready_request: Some("GET /health"),
+            sandbox: false,
         };
         let err = merge_config(None, &opts).unwrap_err().to_string();
         assert!(err.contains("--ready-timeout or --ready"), "{err}");
@@ -3142,6 +3158,7 @@ mod tests {
             effects: None,
             ready_secs: None,
             ready_request: None,
+            sandbox: false,
         };
         let saved = HttpConfig {
             port: Some(8080),
@@ -3225,6 +3242,7 @@ mod tests {
             effects: None,
             ready: Duration::from_secs(1),
             ready_request: None,
+            sandbox: false,
         };
         let repo = std::env::temp_dir();
 

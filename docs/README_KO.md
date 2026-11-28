@@ -93,6 +93,7 @@ rust-anything doctor          # 원본에 필요한 런타임을 점검하고, �
 
 > [!WARNING]
 > 기록은 원본의 실제 코드를 실행합니다. 복사본에서 작업하고, 서버는 테스트 데이터베이스를 가리키게 하세요.
+> `record --sandbox`와 `app record --sandbox`는 네트워크 없이, 저장소는 읽기 전용으로, CPU와 메모리 제한을 걸고 실행합니다 (Linux에서는 bubblewrap, macOS에서는 sandbox-exec; `doctor`가 있는지 확인합니다).
 
 > [!TIP]
 > **에이전트:** 설치 단계, 모든 명령, 포팅 흐름은 [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt)를 읽으세요.
@@ -168,6 +169,7 @@ rust-anything doctor          # 원본에 필요한 런타임을 점검하고, �
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | CLI나 서버 전체를 포팅 |
 | `rust-anything rules <repo> --add "<rule>"` | 여러분이 바로잡은 동작, 이후 모든 포팅에서 유지 |
 | `rust-anything map <repo>` | 모든 유닛과 그 크레이트, 케이스, 마지막 diff |
+| `rust-anything log <repo>` | 모든 켜기와 끄기, wire, lift, gate 결과를 `rust/audit.jsonl`에서 보여 줌 |
 | `rust-anything setup` / `doctor` / `mcp` | 에이전트용 설치, 런타임 점검, MCP 서버 |
 
 ## 라이선스

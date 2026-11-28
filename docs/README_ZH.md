@@ -93,6 +93,7 @@ rust-anything doctor          # 检查原始代码需要的运行时，并给出
 
 > [!WARNING]
 > 录制会真正运行原始代码。请在副本上操作，并让服务器连接测试数据库。
+> `record --sandbox` 和 `app record --sandbox` 会在无网络、仓库只读、限制 CPU 和内存的环境中运行它（Linux 上用 bubblewrap，macOS 上用 sandbox-exec；`doctor` 会检查它是否可用）。
 
 > [!TIP]
 > **代理：**阅读 [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt)，了解安装步骤、全部命令和移植流程。
@@ -168,6 +169,7 @@ rust-anything doctor          # 检查原始代码需要的运行时，并给出
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | 移植整个 CLI 或服务器 |
 | `rust-anything rules <repo> --add "<rule>"` | 你纠正过的行为，之后每次移植都会保留 |
 | `rust-anything map <repo>` | 每个单元、它的 crate、用例和最近一次 diff |
+| `rust-anything log <repo>` | 每一次启用或关闭，以及每个 wire、lift 和 gate 的结果，来自 `rust/audit.jsonl` |
 | `rust-anything setup` / `doctor` / `mcp` | 为代理安装、检查运行时、MCP 服务器 |
 
 ## 许可证

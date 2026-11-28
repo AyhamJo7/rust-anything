@@ -23,6 +23,10 @@ use crate::walk::Canonical;
 const PER_FUNCTION: usize = 1000;
 pub const TEST_INPUTS: &str = "test-inputs.jsonl";
 const BACKUP: &str = ".rust-anything-backup";
+/// Why `record --sandbox` refuses `--from-tests`.
+pub const NOT_SANDBOXED: &str = "`--sandbox` does not combine with `--from-tests`: the project's \
+     own test suite would run outside the sandbox (and TS/JS capture edits the unit's files for \
+     the run). Use one or the other";
 
 #[derive(Debug)]
 pub struct Capture {

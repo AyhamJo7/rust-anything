@@ -954,7 +954,14 @@ fn unit_dependency(path: &str, crate_dir: &Path) -> InlineTable {
     dep
 }
 
+/// Wires the unit and appends the change to the repository's audit log.
 pub fn wire(opts: &WireOptions) -> Result<WireOutcome> {
+    let outcome = wire_unit(opts)?;
+    crate::audit::wired(opts.repo, &outcome, opts.skip_gate);
+    Ok(outcome)
+}
+
+fn wire_unit(opts: &WireOptions) -> Result<WireOutcome> {
     let repo = opts
         .repo
         .canonical()

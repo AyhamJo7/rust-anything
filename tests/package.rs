@@ -109,6 +109,7 @@ fn napi_package_installs_from_tarballs_and_falls_back_to_the_original() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     let port_path = dir.join("src/port.rs");

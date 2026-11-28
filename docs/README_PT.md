@@ -93,6 +93,7 @@ rust-anything doctor          # verifica os runtimes de que o seu original preci
 
 > [!WARNING]
 > A gravação executa o código real do original. Trabalhe numa cópia e aponte um servidor para uma base de dados de teste.
+> `record --sandbox` e `app record --sandbox` executam-no sem rede, com o repositório só de leitura e com limites de CPU e memória (bubblewrap no Linux, sandbox-exec no macOS; `doctor` verifica se está disponível).
 
 > [!TIP]
 > **Agentes:** leiam [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) para os passos de instalação, todos os comandos e o fluxo de portabilidade.
@@ -168,6 +169,7 @@ rust-anything doctor          # verifica os runtimes de que o seu original preci
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Migra uma CLI ou um servidor inteiro |
 | `rust-anything rules <repo> --add "<rule>"` | Comportamento que corrigiu, mantido por cada migração posterior |
 | `rust-anything map <repo>` | Cada unidade, o seu crate, casos e último diff |
+| `rust-anything log <repo>` | Cada ativação ou desativação, cada resultado de wire, lift e gate, a partir de `rust/audit.jsonl` |
 | `rust-anything setup` / `doctor` / `mcp` | Instalação para agentes, verificação de runtimes, servidor MCP |
 
 ## Licença

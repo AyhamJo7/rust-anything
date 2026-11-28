@@ -570,6 +570,7 @@ fn record_inputs_rejects_missing_or_non_array_args() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap_err();
     assert_eq!(
@@ -590,6 +591,7 @@ fn record_inputs_rejects_missing_or_non_array_args() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap_err();
     assert_eq!(
@@ -645,6 +647,7 @@ fn record_inputs_rejects_missing_fn() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap_err();
     assert_eq!(
@@ -710,6 +713,7 @@ fn record_inputs_rejects_unknown_export_and_lists_known() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap_err();
     assert_eq!(
@@ -783,6 +787,7 @@ fn record_inputs_rejects_kwargs_on_a_typescript_unit() {
             module: None,
             resolve_from: None,
             node_args: &[],
+            sandbox: false,
         });
         let message = match outcome {
             Err(e) => e.to_string(),

@@ -93,6 +93,7 @@ rust-anything doctor          # проверяет среды выполнени
 
 > [!WARNING]
 > Запись запускает настоящий код оригинала. Работайте с копией и направляйте сервер на тестовую базу данных.
+> `record --sandbox` и `app record --sandbox` запускают его без сети, с репозиторием только для чтения и с ограничениями CPU и памяти (bubblewrap в Linux, sandbox-exec в macOS; `doctor` проверяет, есть ли он).
 
 > [!TIP]
 > **Агентам:** прочитайте [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt), там шаги установки, все команды и порядок портирования.
@@ -168,6 +169,7 @@ rust-anything doctor          # проверяет среды выполнени
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Портирует целый CLI или сервер |
 | `rust-anything rules <repo> --add "<rule>"` | Исправленное вами поведение, которое сохраняет каждый следующий порт |
 | `rust-anything map <repo>` | Каждый модуль, его крейт, случаи и последний diff |
+| `rust-anything log <repo>` | Каждое включение или выключение, каждый результат wire, lift и gate, из `rust/audit.jsonl` |
 | `rust-anything setup` / `doctor` / `mcp` | Установка для агентов, проверка сред выполнения, MCP-сервер |
 
 ## Лицензия

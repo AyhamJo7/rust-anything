@@ -93,6 +93,7 @@ rust-anything doctor          # оригиналыгызга кирәк булг
 
 > [!WARNING]
 > Язу оригиналның чын кодын эшләтә. Күчермә белән эшләгез һәм серверны тест мәгълүмат базасына юнәлтегез.
+> `record --sandbox` һәм `app record --sandbox` аны челтәрсез, репозиторийны укыр өчен генә хәлдә һәм CPU белән хәтер чикләүләре белән эшләтә (Linux'та bubblewrap, macOS'та sandbox-exec; `doctor` аның барлыгын тикшерә).
 
 > [!TIP]
 > **Агентларга:** урнаштыру адымнары, барлык боерыклар һәм портлау тәртибе өчен [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) укыгыз.
@@ -168,6 +169,7 @@ rust-anything doctor          # оригиналыгызга кирәк булг
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Бөтен CLI'ны яки серверны портлый |
 | `rust-anything rules <repo> --add "<rule>"` | Сез төзәткән тотыш, киләсе һәр порт саклый |
 | `rust-anything map <repo>` | Һәр берәмлек, аның crate'ы, очраклары һәм соңгы diff |
+| `rust-anything log <repo>` | Һәр кабызу яки сүндерү, һәр wire, lift һәм gate нәтиҗәсе, `rust/audit.jsonl` эченнән |
 | `rust-anything setup` / `doctor` / `mcp` | Агентлар өчен урнаштыру, эшләү мохитләрен тикшерү, MCP сервер |
 
 ## Лицензия

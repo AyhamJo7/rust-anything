@@ -40,6 +40,7 @@ fn records_go_internal_packages() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     });
     std::fs::remove_dir_all(root).unwrap();
 

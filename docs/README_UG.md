@@ -95,6 +95,7 @@ rust-anything doctor          # ئەسلىي پروگراممىڭىزغا كېر
 
 > [!WARNING]
 > خاتىرىلەش ئەسلىي پروگراممىنىڭ ھەقىقىي كودىنى ئىجرا قىلىدۇ. بىر نۇسخىسى ئۈستىدە ئىشلەڭ، ھەمدە مۇلازىمېتىرنى سىناق ساندانىغا قارىتىڭ.
+> `record --sandbox` ۋە `app record --sandbox` ئۇنى تورسىز، ئامبارنى پەقەت ئوقۇشقىلا بولىدىغان ھالەتتە ۋە CPU بىلەن ئىچكى ساقلىغۇچ چەكلىمىسى بىلەن ئىجرا قىلىدۇ (Linux تا bubblewrap، macOS تا sandbox-exec؛ `doctor` ئۇنىڭ بار-يوقلۇقىنى تەكشۈرىدۇ).
 
 > **ۋاكالەتچىلەرگە:** ئورنىتىش قەدەملىرى، بارلىق بۇيرۇقلار ۋە كۆچۈرۈش جەريانى ئۈچۈن [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) نى ئوقۇڭ.
 
@@ -169,6 +170,7 @@ rust-anything doctor          # ئەسلىي پروگراممىڭىزغا كېر
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | پۈتۈن بىر CLI ياكى مۇلازىمېتىرنى كۆچۈرىدۇ |
 | `rust-anything rules <repo> --add "<rule>"` | سىز تۈزەتكەن ھەرىكەت، كېيىنكى ھەر بىر كۆچۈرمىدە ساقلىنىدۇ |
 | `rust-anything map <repo>` | ھەر بىر بىرلىك، ئۇنىڭ crate ى، ئەھۋاللىرى ۋە ئاخىرقى diff |
+| `rust-anything log <repo>` | ھەر بىر قوزغىتىش ياكى تاقاش، ھەر بىر wire، lift ۋە gate نەتىجىسى، `rust/audit.jsonl` دىن |
 | `rust-anything setup` / `doctor` / `mcp` | ۋاكالەتچىلەر ئۈچۈن ئورنىتىش، ئىجرا مۇھىتىنى تەكشۈرۈش، MCP مۇلازىمېتىرى |
 
 ## ئىجازەتنامە

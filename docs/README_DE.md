@@ -93,6 +93,7 @@ rust-anything doctor          # prüft die Laufzeitumgebungen, die dein Original
 
 > [!WARNING]
 > Die Aufzeichnung führt den echten Code des Originals aus. Arbeite an einer Kopie und richte einen Server auf eine Testdatenbank.
+> `record --sandbox` und `app record --sandbox` führen ihn ohne Netzwerk, mit schreibgeschütztem Repository und mit CPU- und Speicherlimits aus (bubblewrap unter Linux, sandbox-exec unter macOS; `doctor` prüft, ob es vorhanden ist).
 
 > [!TIP]
 > **Agenten:** Lies [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) für die Installationsschritte, alle Befehle und den Portierungsablauf.
@@ -168,6 +169,7 @@ rust-anything doctor          # prüft die Laufzeitumgebungen, die dein Original
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Eine ganze CLI oder einen ganzen Server portieren |
 | `rust-anything rules <repo> --add "<rule>"` | Verhalten, das du korrigiert hast, von jeder späteren Portierung beibehalten |
 | `rust-anything map <repo>` | Jede Einheit, ihr Crate, ihre Fälle und der letzte Diff |
+| `rust-anything log <repo>` | Jedes Ein- oder Ausschalten, jedes wire-, lift- und gate-Ergebnis, aus `rust/audit.jsonl` |
 | `rust-anything setup` / `doctor` / `mcp` | Installation für Agenten, Laufzeiten prüfen, MCP-Server |
 
 ## Lizenz

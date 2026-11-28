@@ -93,6 +93,7 @@ rust-anything doctor          # түпнұсқаңызға керек орынд
 
 > [!WARNING]
 > Жазу түпнұсқаның нақты кодын іске қосады. Көшірмемен жұмыс істеңіз және серверді тест дерекқорына бағыттаңыз.
+> `record --sandbox` және `app record --sandbox` оны желісіз, репозиторийді тек оқуға арналған күйде және CPU мен жад шектеулерімен іске қосады (Linux-та bubblewrap, macOS-та sandbox-exec; `doctor` оның бар-жоғын тексереді).
 
 > [!TIP]
 > **Агенттерге:** орнату қадамдары, барлық командалар және порттау тәртібі үшін [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) оқыңыз.
@@ -168,6 +169,7 @@ rust-anything doctor          # түпнұсқаңызға керек орынд
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Тұтас CLI-ды немесе серверді порттайды |
 | `rust-anything rules <repo> --add "<rule>"` | Сіз түзеткен мінез-құлық, кейінгі әр порт сақтайды |
 | `rust-anything map <repo>` | Әр бірлік, оның crate-і, жағдайлары және соңғы diff |
+| `rust-anything log <repo>` | Әр қосу немесе өшіру, әр wire, lift және gate нәтижесі, `rust/audit.jsonl` ішінен |
 | `rust-anything setup` / `doctor` / `mcp` | Агенттерге орнату, орындау орталарын тексеру, MCP сервері |
 
 ## Лицензия

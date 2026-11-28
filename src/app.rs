@@ -424,13 +424,17 @@ fn run_case(
     timeout: Duration,
     effects: Option<&crate::effects::EffectsConfig>,
     base: Option<&Path>,
+    sandboxed: bool,
 ) -> Result<Run> {
     let sandbox = temp_dir("run")?;
-    let result = run_in(command, repo, case, timeout, &sandbox, effects, base);
+    let result = run_in(
+        command, repo, case, timeout, &sandbox, effects, base, sandboxed,
+    );
     let _ = std::fs::remove_dir_all(&sandbox);
     result
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_in(
     command: &[String],
     repo: &Path,
@@ -439,6 +443,7 @@ fn run_in(
     sandbox: &Path,
     effects: Option<&crate::effects::EffectsConfig>,
     base: Option<&Path>,
+    sandboxed: bool,
 ) -> Result<Run> {
     let work = sandbox.join("cwd");
     std::fs::create_dir_all(&work)?;
@@ -481,10 +486,7 @@ fn run_in(
     let mut cmd = Command::new(resolve_word(repo, program));
     cmd.args(rest.iter().map(|w| resolve_word(repo, w)))
         .args(&case.args)
-        .current_dir(&work)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        .current_dir(&work);
     if !case.inherit_env {
         cmd.env_clear();
     }
@@ -503,6 +505,18 @@ fn run_in(
         cmd.envs(sinks.env());
     }
     cmd.envs(&case.env).env(FALLBACK_ENV, &log);
+    if sandboxed {
+        cmd = crate::process::Sandbox {
+            read_only: repo,
+            scratch: sandbox,
+            writable: &[],
+            loopback: sinks.is_some(),
+        }
+        .wrap(&cmd, case.inherit_env)?;
+    }
+    cmd.stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt as _;
@@ -1650,6 +1664,10 @@ pub struct RecordOptions<'a> {
     /// Servers: a request that says the app is ready once it answers, e.g. `GET /health`; kept from
     /// the last recording when `None`.
     pub ready_request: Option<&'a str>,
+    /// Run the original with no network, the repository read-only and CPU and memory limits
+    /// ([`crate::process::Sandbox`]); loopback stays open for a server and effect sinks where
+    /// the sandbox allows it (macOS).
+    pub sandbox: bool,
 }
 
 fn is_zero(n: &usize) -> bool {
@@ -2217,8 +2235,24 @@ pub fn record(opts: &RecordOptions) -> Result<RecordOutcome> {
     let base = crate::http::snapshot_to(&repo, &config.fresh, &cases_dir(&repo).join(FRESH_DIR))?;
     let base = base.as_deref();
     let run_twice = |(_, case): &(String, Case)| -> Result<(Run, Run)> {
-        let one = run_case(&config.run, &repo, case, timeout, effects, base)?;
-        let two = run_case(&config.run, &repo, case, timeout, effects, base)?;
+        let one = run_case(
+            &config.run,
+            &repo,
+            case,
+            timeout,
+            effects,
+            base,
+            opts.sandbox,
+        )?;
+        let two = run_case(
+            &config.run,
+            &repo,
+            case,
+            timeout,
+            effects,
+            base,
+            opts.sandbox,
+        )?;
         Ok((one, two))
     };
     let runs = if effects.is_some_and(crate::effects::EffectsConfig::serial) {
@@ -2741,7 +2775,7 @@ fn check(
     effects: Option<&crate::effects::EffectsConfig>,
     base: Option<&Path>,
 ) -> Result<(Vec<Problem>, Option<bool>)> {
-    let run = run_case(command, repo, &spec.case, timeout, effects, base)?;
+    let run = run_case(command, repo, &spec.case, timeout, effects, base, false)?;
     let mut problems = Vec::new();
     let status_ok = match (&spec.status, &run.status) {
         (Expect::Code(e), Status::Code(a)) => e == a,
@@ -3304,6 +3338,7 @@ mod tests {
                 Duration::from_millis(200),
                 None,
                 None,
+                false,
             )
             .unwrap();
             assert!(start.elapsed() < Duration::from_secs(3), "{script}");
@@ -3367,6 +3402,7 @@ mod tests {
             effects: None,
             ready_secs: None,
             ready_request: None,
+            sandbox: false,
         })
         .unwrap();
         assert_eq!(recorded.cases, 1);
@@ -3692,6 +3728,7 @@ mod tests {
             effects: None,
             ready_secs: None,
             ready_request: None,
+            sandbox: false,
         })
         .unwrap();
         let read = |name: &str| std::fs::read_to_string(recorded.dir.join(name)).unwrap();
@@ -3728,6 +3765,7 @@ mod tests {
                 effects: None,
                 ready_secs: None,
                 ready_request: None,
+                sandbox: false,
             })
             .unwrap();
             Config::load(&repo).unwrap().unwrap().name
@@ -3823,6 +3861,7 @@ mod tests {
             effects: None,
             ready_secs: None,
             ready_request: None,
+            sandbox: false,
         })
         .unwrap_err();
         let rec_msg = format!("{rec_err:#}");

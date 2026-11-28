@@ -121,7 +121,12 @@ fn driver(
     run(&mut cmd, &format!("php driver ({mode})"))
 }
 
-pub fn record(crate_dir: &Path, m: &Manifest, cases: &[Value]) -> Result<PathBuf> {
+pub fn record(
+    crate_dir: &Path,
+    m: &Manifest,
+    cases: &[Value],
+    sandbox: Option<&Path>,
+) -> Result<PathBuf> {
     let out = crate_dir.join(CASES);
     let pending = crate_dir.join(WORK_DIR).join("recording.jsonl");
     crate::harness::record_cases(
@@ -129,6 +134,7 @@ pub fn record(crate_dir: &Path, m: &Manifest, cases: &[Value]) -> Result<PathBuf
         &crate_dir.join(WORK_DIR),
         &pending,
         "php driver (record)",
+        sandbox,
         |inputs, part| driver_command(crate_dir, m, "record", inputs, part, 0, false),
     )?;
     let recorded: std::collections::HashSet<String> = std::fs::read_to_string(&pending)?

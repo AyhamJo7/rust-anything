@@ -95,6 +95,7 @@ rust-anything doctor          # محیط‌های اجرایی موردنیاز 
 
 > [!WARNING]
 > ضبط، کد واقعی نسخهٔ اصلی را اجرا می‌کند. روی یک کپی کار کنید، و سرور را به یک پایگاه دادهٔ آزمایشی وصل کنید.
+> `record --sandbox` و `app record --sandbox` آن را بدون شبکه، با مخزن فقط‌خواندنی و با محدودیت CPU و حافظه اجرا می‌کنند (bubblewrap روی Linux، sandbox-exec روی macOS؛ `doctor` وجود آن را بررسی می‌کند).
 
 > **ایجنت‌ها:** برای مراحل نصب، همهٔ دستورها و روند پورت، [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) را بخوانید.
 
@@ -169,6 +170,7 @@ rust-anything doctor          # محیط‌های اجرایی موردنیاز 
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | یک CLI یا سرور کامل را پورت می‌کند |
 | `rust-anything rules <repo> --add "<rule>"` | رفتاری که اصلاح کرده‌اید، و هر پورت بعدی آن را حفظ می‌کند |
 | `rust-anything map <repo>` | هر واحد، crate آن، موردها و آخرین diff |
+| `rust-anything log <repo>` | هر روشن یا خاموش کردن، و هر نتیجهٔ wire، lift و gate، از `rust/audit.jsonl` |
 | `rust-anything setup` / `doctor` / `mcp` | نصب برای ایجنت‌ها، بررسی محیط‌های اجرایی، سرور MCP |
 
 ## مجوز

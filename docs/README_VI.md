@@ -93,6 +93,7 @@ rust-anything doctor          # kiểm tra các runtime mà bản gốc cần, k
 
 > [!WARNING]
 > Việc ghi sẽ chạy code thật của bản gốc. Hãy làm trên một bản sao, và trỏ server vào một cơ sở dữ liệu thử nghiệm.
+> `record --sandbox` và `app record --sandbox` chạy nó không có mạng, repo ở chế độ chỉ đọc, kèm giới hạn CPU và bộ nhớ (bubblewrap trên Linux, sandbox-exec trên macOS; `doctor` kiểm tra xem có sẵn chưa).
 
 > [!TIP]
 > **Agent:** đọc [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) để xem các bước cài đặt, mọi lệnh và quy trình chuyển đổi.
@@ -168,6 +169,7 @@ rust-anything doctor          # kiểm tra các runtime mà bản gốc cần, k
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Port cả một CLI hoặc server |
 | `rust-anything rules <repo> --add "<rule>"` | Hành vi bạn đã sửa, được giữ trong mọi bản port sau này |
 | `rust-anything map <repo>` | Mọi unit, crate của nó, các case và diff gần nhất |
+| `rust-anything log <repo>` | Mọi lần bật hoặc tắt, mọi kết quả wire, lift và gate, từ `rust/audit.jsonl` |
 | `rust-anything setup` / `doctor` / `mcp` | Cài đặt cho agent, kiểm tra runtime, server MCP |
 
 ## Giấy phép

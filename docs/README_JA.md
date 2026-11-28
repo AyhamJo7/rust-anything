@@ -93,6 +93,7 @@ rust-anything doctor          # オリジナルに必要なランタイムを確
 
 > [!WARNING]
 > 記録はオリジナルの実際のコードを実行します。コピーで作業し、サーバーはテスト用データベースに向けてください。
+> `record --sandbox` と `app record --sandbox` は、ネットワークなし、リポジトリは読み取り専用、CPU とメモリの制限付きで実行します（Linux では bubblewrap、macOS では sandbox-exec。`doctor` がその有無を確認します）。
 
 > [!TIP]
 > **エージェント向け:** インストール手順、すべてのコマンド、移植の流れは [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) を読んでください。
@@ -168,6 +169,7 @@ rust-anything doctor          # オリジナルに必要なランタイムを確
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | CLI やサーバー全体を移植 |
 | `rust-anything rules <repo> --add "<rule>"` | あなたが直した振る舞い、以降のすべての移植で保持 |
 | `rust-anything map <repo>` | すべてのユニット、そのクレート、ケース、最後の diff |
+| `rust-anything log <repo>` | すべての有効化と無効化、wire、lift、gate の結果を `rust/audit.jsonl` から表示 |
 | `rust-anything setup` / `doctor` / `mcp` | エージェント向けインストール、ランタイム確認、MCP サーバー |
 
 ## ライセンス

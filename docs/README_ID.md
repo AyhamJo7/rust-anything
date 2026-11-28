@@ -95,6 +95,7 @@ rust-anything doctor          # memeriksa runtime yang dibutuhkan versi asli And
 
 > [!WARNING]
 > Perekaman menjalankan kode sungguhan dari versi asli. Bekerjalah pada salinan, dan arahkan server ke basis data uji.
+> `record --sandbox` dan `app record --sandbox` menjalankannya tanpa jaringan, dengan repositori hanya-baca dan batas CPU serta memori (bubblewrap di Linux, sandbox-exec di macOS; `doctor` memeriksa keberadaannya).
 
 > [!TIP]
 > **Agen:** baca [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) untuk langkah instalasi, semua perintah, dan alur porting.
@@ -170,6 +171,7 @@ rust-anything doctor          # memeriksa runtime yang dibutuhkan versi asli And
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Mem-port seluruh CLI atau server |
 | `rust-anything rules <repo> --add "<rule>"` | Perilaku yang Anda koreksi, dipertahankan oleh setiap port berikutnya |
 | `rust-anything map <repo>` | Setiap unit, crate-nya, kasusnya, dan diff terakhirnya |
+| `rust-anything log <repo>` | Setiap pengaktifan atau penonaktifan, serta setiap hasil wire, lift, dan gate, dari `rust/audit.jsonl` |
 | `rust-anything setup` / `doctor` / `mcp` | Instalasi untuk agen, pemeriksaan runtime, server MCP |
 
 ## Lisensi

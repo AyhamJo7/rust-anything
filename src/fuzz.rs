@@ -171,6 +171,7 @@ pub fn fuzz(opts: &FuzzOptions) -> Result<FuzzOutcome> {
         module: None,
         resolve_from: opts.resolve_from,
         node_args: opts.node_args,
+        sandbox: false,
     };
     let diff_opts = DiffOptions {
         crate_dir: &crate_dir,

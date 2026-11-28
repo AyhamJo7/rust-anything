@@ -93,6 +93,7 @@ rust-anything doctor          # түп нускаңызга керек иште�
 
 > [!WARNING]
 > Жазуу түп нусканын чыныгы кодун иштетет. Көчүрмө менен иштеңиз жана серверди тест маалымат базасына багыттаңыз.
+> `record --sandbox` жана `app record --sandbox` аны тармаксыз, репозиторийди окуу үчүн гана абалда жана CPU менен эс тутум чектөөлөрү менен иштетет (Linux'та bubblewrap, macOS'то sandbox-exec; `doctor` анын бар-жогун текшерет).
 
 > [!TIP]
 > **Агенттерге:** орнотуу кадамдары, бардык буйруктар жана порттоо тартиби үчүн [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) окуңуз.
@@ -168,6 +169,7 @@ rust-anything doctor          # түп нускаңызга керек иште�
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Бүтүн CLI'ды же серверди порттойт |
 | `rust-anything rules <repo> --add "<rule>"` | Сиз оңдогон жүрүм-турум, кийинки ар бир порт сактайт |
 | `rust-anything map <repo>` | Ар бир бирдик, анын crate'и, учурлары жана акыркы diff |
+| `rust-anything log <repo>` | Ар бир күйгүзүү же өчүрүү, ар бир wire, lift жана gate натыйжасы, `rust/audit.jsonl` ичинен |
 | `rust-anything setup` / `doctor` / `mcp` | Агенттер үчүн орнотуу, иштетүү чөйрөлөрүн текшерүү, MCP сервери |
 
 ## Лицензия

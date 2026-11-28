@@ -71,7 +71,7 @@ pub fn package(crate_dir: &Path, manifest: &Manifest) -> (PathBuf, String) {
     (crate_dir.join("python"), manifest.lib_name())
 }
 
-pub fn record(crate_dir: &Path, cases: &[Value]) -> Result<PathBuf> {
+pub fn record(crate_dir: &Path, cases: &[Value], sandbox: Option<&Path>) -> Result<PathBuf> {
     let driver = driver(crate_dir)?;
     let out = crate_dir.join(CASES);
     crate::harness::record_cases(
@@ -79,6 +79,7 @@ pub fn record(crate_dir: &Path, cases: &[Value]) -> Result<PathBuf> {
         &crate_dir.join(WORK_DIR),
         &out,
         "python",
+        sandbox,
         |inputs, part| {
             let mut cmd = Command::new(python());
             cmd.arg(&driver)

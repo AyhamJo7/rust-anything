@@ -47,6 +47,7 @@ fn round_trip(root: &Path, unit: &str, kind: Kind, name: &str, body: &str) {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert!(recorded.cases > 0, "{recorded:?}");
@@ -193,6 +194,7 @@ fn pyo3_bytes_bridge_accepts_bytes_bytearray_memoryview_and_returns_bytes() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert!(recorded.cases > 0, "{recorded:?}");
@@ -303,6 +305,7 @@ fn pyo3_path_bridge_takes_and_returns_pathlib_paths() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert!(recorded.cases > 0, "{recorded:?}");
@@ -434,6 +437,7 @@ fn pyo3_required_optional_parameter_is_passed_none_not_left_out() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     // `pick` has no default for `fallback`: the original is called with `None`, not without it.
@@ -601,6 +605,7 @@ fn stubs_fail(root: &Path, unit: &str, kind: Option<Kind>, program: &str) {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert!(
@@ -900,6 +905,7 @@ fn java_records_with_the_bridge_crate_inside_the_project() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     std::fs::remove_dir_all(&root).unwrap();
@@ -1016,6 +1022,7 @@ fn dataclass_parameters_get_real_instances() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     let cases = std::fs::read_to_string(outcome.crate_dir.join("cases.jsonl")).unwrap();
@@ -1066,6 +1073,7 @@ fn one_file_of_a_unit_can_be_bridged_alone() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     let missing = bridge_python(&root, "pkg/nope.py").unwrap_err();
@@ -1311,6 +1319,7 @@ fn python_errors_raise_the_originals_own_classes() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     let port = std::fs::read_to_string(dir.join("src/port.rs")).unwrap();

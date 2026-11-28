@@ -83,6 +83,7 @@ fn records_a_kotlin_unit_on_a_connected_device() {
             module: None,
             resolve_from: None,
             node_args: &[],
+            sandbox: false,
         },
         None,
     )

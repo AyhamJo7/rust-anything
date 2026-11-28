@@ -97,6 +97,8 @@ rust-anything doctor          # checks the runtimes your original needs, with th
 
 > [!WARNING]
 > Recording runs the original's real code. Work on a copy, and point a server at a test database.
+> `record --sandbox` and `app record --sandbox` run it with no network, the repository read-only
+> and CPU and memory limits (bubblewrap on Linux, sandbox-exec on macOS; `doctor` checks for it).
 
 > [!TIP]
 > **Agents:** read [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) for the install steps, every command and the porting workflow.
@@ -172,6 +174,7 @@ rust-anything doctor          # checks the runtimes your original needs, with th
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Port a whole CLI or server |
 | `rust-anything rules <repo> --add "<rule>"` | Behavior you corrected, kept by every later port |
 | `rust-anything map <repo>` | Every unit, its crate, cases and last diff |
+| `rust-anything log <repo>` | Every switch on or off, wire, lift and gate result, from `rust/audit.jsonl` |
 | `rust-anything setup` / `doctor` / `mcp` | Install for agents, check runtimes, MCP server |
 
 ## License

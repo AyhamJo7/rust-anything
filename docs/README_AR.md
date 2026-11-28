@@ -95,6 +95,7 @@ rust-anything doctor          # يفحص بيئات التشغيل التي يح
 
 > [!WARNING]
 > التسجيل يشغّل الشيفرة الحقيقية للأصل. اعمل على نسخة، ووجّه أي خادم إلى قاعدة بيانات اختبارية.
+> يشغّله `record --sandbox` و`app record --sandbox` دون شبكة، مع مستودع للقراءة فقط وحدود للمعالج والذاكرة (bubblewrap على Linux، وsandbox-exec على macOS؛ ويتحقق `doctor` من وجوده).
 
 > **للوكلاء:** اقرأ [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) لخطوات التثبيت وكل الأوامر وسير عمل النقل.
 
@@ -169,6 +170,7 @@ rust-anything doctor          # يفحص بيئات التشغيل التي يح
 | `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | ينقل أداة CLI أو خادمًا بالكامل |
 | `rust-anything rules <repo> --add "<rule>"` | سلوك صحّحته، تحتفظ به كل عملية نقل لاحقة |
 | `rust-anything map <repo>` | كل وحدة، وحزمتها crate، وحالاتها، وآخر diff |
+| `rust-anything log <repo>` | كل تفعيل أو إيقاف، وكل نتيجة لـ wire وlift وgate، من `rust/audit.jsonl` |
 | `rust-anything setup` / `doctor` / `mcp` | التثبيت للوكلاء، وفحص بيئات التشغيل، وخادم MCP |
 
 ## الرخصة

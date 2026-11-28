@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- `record --sandbox` and `app record --sandbox` (MCP `record` and `app_record`: `sandbox`) run
+  the original with no network, its repository read-only and CPU and memory limits:
+  bubblewrap on Linux (`--unshare-net`, the file system read-only apart from the run's scratch
+  and work folders), sandbox-exec on macOS (writes refused in the repository, loopback kept for
+  `--http` and effect sinks, no memory limit). A missing tool fails with its install command
+  instead of recording unsandboxed, and `doctor` has a `sandbox` line.
+- An audit log of every change to what runs in production. `enable` (with `--only`, `--partial`
+  or `--force`), `disable`, `app wire`, `app lift` and `go` append a line to
+  `<repo>/rust/audit.jsonl`, and every `gate` appends its result: the time in UTC, the command,
+  the unit and crate, the functions switched, gate's pass or fail with check and case counts, the
+  rust-anything version and the repository's git commit, never a user name or email. A forced
+  `enable` is marked `"forced": true`. The file is only appended to. `rust-anything log <repo>`
+  (`--json`, and the MCP `log` tool) reads it, and `map` has a "Last change" column.
+
 - `record` refuses to leave a secret in `cases.jsonl`. A recorded function that returned the
   value of an environment variable such as `API_TOKEN` or `DB_PASSWORD` wrote it into the file
   the workflow says to commit. When the recording holds the value (8 characters or more) of a

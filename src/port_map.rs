@@ -48,6 +48,9 @@ pub struct Port {
     pub last_diff: Option<(usize, usize)>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub changed_upstream: Option<String>,
+    /// The last `enable`, `disable`, `app wire` or `app lift` of this crate in the audit log.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_change: Option<crate::audit::Entry>,
 }
 
 #[derive(Debug, Serialize)]
@@ -109,6 +112,9 @@ pub fn map(root: &Path, extra: &[PathBuf]) -> Result<PortMap> {
     crate_dirs.sort();
     crate_dirs.dedup();
 
+    let log = crate::audit::read(&root)
+        .map(|log| log.entries)
+        .unwrap_or_default();
     let mut ports = Vec::new();
     let mut crate_errors = Vec::new();
     let mut covered_by_broken: Vec<String> = Vec::new();
@@ -152,7 +158,7 @@ pub fn map(root: &Path, extra: &[PathBuf]) -> Result<PortMap> {
         if std::fs::canonicalize(&m.root).ok().as_deref() != Some(root.as_path()) {
             continue;
         }
-        ports.push(port(&root, &dir, &m));
+        ports.push(port(&root, &dir, &m, &log));
     }
     ports.sort_by(|a, b| a.unit.cmp(&b.unit).then(a.crate_dir.cmp(&b.crate_dir)));
 
@@ -214,7 +220,7 @@ fn covers(unit: &str, id: &str, files: &[String]) -> bool {
     unit == id || files.iter().any(|f| f == unit)
 }
 
-fn port(root: &Path, dir: &Path, m: &Manifest) -> Port {
+fn port(root: &Path, dir: &Path, m: &Manifest, log: &[crate::audit::Entry]) -> Port {
     let in_rust = m
         .exports
         .iter()
@@ -225,13 +231,19 @@ fn port(root: &Path, dir: &Path, m: &Manifest) -> Port {
     let cases = std::fs::read_to_string(dir.join(CASES))
         .map(|t| t.lines().filter(|l| !l.trim().is_empty()).count())
         .unwrap_or(0);
+    let crate_dir = dir
+        .strip_prefix(root)
+        .unwrap_or(dir)
+        .to_string_lossy()
+        .replace('\\', "/");
+    let logged_dir = match dir.strip_prefix(root) {
+        Ok(_) => crate_dir.clone(),
+        Err(_) => crate::shadow::relative(root, dir),
+    };
     Port {
         unit: m.unit.clone(),
-        crate_dir: dir
-            .strip_prefix(root)
-            .unwrap_or(dir)
-            .to_string_lossy()
-            .replace('\\', "/"),
+        last_change: crate::audit::last_switch(log, &logged_dir, &m.crate_name).cloned(),
+        crate_dir,
         language: format!("{:?}", m.language).to_lowercase(),
         kind: format!("{:?}", m.kind).to_lowercase(),
         in_rust,
@@ -345,13 +357,13 @@ fn render(out: &mut String, map: &PortMap) -> std::fmt::Result {
     } else {
         writeln!(
             out,
-            "| Unit | Crate | In Rust | Kept in the original | Cases | Last diff | Original |"
+            "| Unit | Crate | In Rust | Kept in the original | Cases | Last diff | Original | Last change |"
         )?;
-        writeln!(out, "| --- | --- | --- | --- | ---: | ---: | --- |")?;
+        writeln!(out, "| --- | --- | --- | --- | ---: | ---: | --- | --- |")?;
         for p in &map.ports {
             writeln!(
                 out,
-                "| `{}` | `{}` | {} | {} | {} | {} | {} |",
+                "| `{}` | `{}` | {} | {} | {} | {} | {} | {} |",
                 p.unit,
                 p.crate_dir,
                 list(&p.in_rust),
@@ -363,7 +375,12 @@ fn render(out: &mut String, map: &PortMap) -> std::fmt::Result {
                     format!("**changed**: `rust-anything record {}`", p.crate_dir)
                 } else {
                     "unchanged".into()
-                }
+                },
+                p.last_change.as_ref().map_or("none".into(), |e| format!(
+                    "{}: {}",
+                    e.time.get(..10).unwrap_or(&e.time),
+                    crate::audit::summary(e)
+                ))
             )?;
         }
         writeln!(out)?;

@@ -216,6 +216,7 @@ pub fn run() -> Report {
         let adb = s.spawn(android_adb);
         let build_tools = s.spawn(android_build_tools);
         let mcp = s.spawn(|| mcp_self_test(&exe));
+        let sandbox = s.spawn(sandbox);
         let mut checks: Vec<Check> = probes
             .into_iter()
             .map(|p| p.join().expect("a runtime probe panicked"))
@@ -230,6 +231,7 @@ pub fn run() -> Report {
         checks.push(adb.join().expect("the adb probe panicked"));
         checks.push(build_tools.join().expect("the build-tools probe panicked"));
         checks.push(mcp.join().expect("the MCP self-test panicked"));
+        checks.extend(sandbox.join().expect("the sandbox probe panicked"));
         checks
     });
     checks.extend(agents(&exe));
@@ -686,6 +688,43 @@ fn android_adb() -> Check {
                 .to_string()
         }),
     }
+}
+
+/// bubblewrap (Linux) or sandbox-exec (macOS), which `record --sandbox` runs the original in;
+/// no row elsewhere, where `--sandbox` is refused.
+fn sandbox() -> Option<Check> {
+    if !cfg!(any(target_os = "linux", target_os = "macos")) {
+        return None;
+    }
+    let installed = crate::process::sandbox_tool().is_ok();
+    let (status, detail, fix) = match crate::process::sandbox_ready() {
+        Ok(tool) => (
+            Status::Ok,
+            format!("{tool}; `record --sandbox` can run"),
+            None,
+        ),
+        Err(why) if installed => (
+            Status::Missing,
+            why,
+            Some(
+                "let bubblewrap create user namespaces (on Ubuntu 24.04 and later, through an \
+                 AppArmor profile for bwrap), or record without `--sandbox`"
+                    .to_string(),
+            ),
+        ),
+        Err(why) => (
+            Status::Missing,
+            why,
+            Some(crate::process::SANDBOX_INSTALL.to_string()),
+        ),
+    };
+    Some(Check {
+        name: "sandbox".into(),
+        status,
+        required: false,
+        detail,
+        fix,
+    })
 }
 
 /// The SDK's `d8` and `android.jar`, which on-device `record` dexes and compiles against.

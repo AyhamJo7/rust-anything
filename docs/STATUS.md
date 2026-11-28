@@ -1,6 +1,6 @@
 # Status
 
-What works, and how each part was last checked. Updated 2026-11-23.
+What works, and how each part was last checked. Updated 2026-11-28.
 
 **Verified**: run end to end (bridge, record, port, diff, gate) on real code someone else wrote,
 named below. **Tested**: covered by this repository's tests on fixtures written for them, not yet
@@ -40,6 +40,7 @@ Details of every run: [real-world.md](real-world.md) (TS/JS) and
 | `fuzz` | Tested | TS/JS: finds a planted mismatch the recording missed, `--keep` makes `gate` fail (`tests/fuzz.rs`); other languages share the record/diff path untested |
 | `record --pin-clock` | Tested | TS/JS (napi): a unit using `Date.now()` and `Math.random` recorded and matched by a Rust port (`tests/fuzz.rs`); Python driver shares the algorithm, untested on a real port |
 | `record --from-tests` | Verified (TS/JS), Tested (Python) | vercel/ms's Jest suite |
+| `record --sandbox`, `app record --sandbox` | Tested (macOS) | `tests/sandbox.rs` on macOS 27.3 with sandbox-exec: a Python unit and a Python CLI that connect to a local port and write into their own folder do both without the flag and neither with it; a Python server still answers on loopback, and a CLI's effect sinks were checked by hand. The Linux path (bubblewrap, `--unshare-net`, read-only root) is written but not run yet: the tests skip without a working `bwrap`, and on Linux `--http` and effects do not combine with the flag. Not on Windows |
 | Coverage of the original in `record` and `gate` | Verified (TS/JS) | Fuse.js: cases run 81% of the lines it imports; other languages do not measure it yet |
 | `--batch` | Verified | Fuse.js, vercel/ms, x18n search |
 | wasm bridge (`--kind wasm`) | Verified | x18n search |
@@ -51,6 +52,7 @@ Details of every run: [real-world.md](real-world.md) (TS/JS) and
 | Shared build cache, `clean` | Tested | one owner per package name and per-crate copies in `src/cache.rs`; two crates named alike built into one shared folder keep their own library in `tests/switch.rs`. Front doors keep their own `target/` |
 | `map` | Tested | ports, upstream changes and `--crates` in `tests/port_map.rs` |
 | `gate`'s cheat guard (`literals`, `tests`, edited `cases.jsonl`) | Tested | a TS/JS stand-in crate in `tests/loop.rs` (three recorded outputs written into the port fail, `// recorded-literal:` lets them pass, a removed case fails while an appended one passes, a removed assertion fails) and literal scanning in `src/gate.rs`; not yet run on a real port |
+| Audit log (rust/audit.jsonl), `log` | Tested | `tests/audit.rs`: `enable` (`--force`, `--only`) and `disable` append one entry each and keep earlier lines byte for byte, a torn line is skipped and the next entry starts on its own line, `log` on a repository without a log writes nothing, `map` shows the last switch, the MCP `log` tool reads the same entries; gate entries (pass, then fail with the failed checks and case counts) in `tests/fuzz.rs`; `app wire` and `app lift` entries (refused lifts left out) in `tests/app.rs`'s lift runs. Not yet kept on a real port |
 | `rules` (rust/RULES.md) | Tested | `tests/rules.rs` (add, duplicates skipped, a crate folder resolves to its repository, `go`'s TASK.md carries the rules) and the MCP prompts in `src/mcp_prompts.rs`; not yet measured with an agent |
 | `app record`, `app replay` | Verified (servers and CLIs) | json-server: 514 HTTP cases with `--fresh`, `--arg`, `--pace`; Prettier: 17,224 CLI cases with `--inputs`, 63 of them with config files around the input; CLIs in `tests/app.rs`, CLI `--fresh` in `tests/app_fresh.rs` |
 | `app shadow` (servers) | Tested | a TS server shadowed by a build with a changed message: clients get the original's answers, one body mismatch logged without values, `--keep` re-recorded as a case (`tests/http.rs`); a Python server whose build mails twice mails once for real, the build into the sink (`tests/effects.rs`) |

@@ -47,6 +47,7 @@ fn record(repo: &Path, python: &str, effects: Option<EffectsConfig>) -> app::Rec
         effects,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap()
 }
@@ -196,6 +197,7 @@ fn a_server_that_mails_twice_fails_only_on_that_request() {
         effects: EffectsConfig::from_args(&["smtp".into()], &[], None, None).unwrap(),
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     assert_eq!(outcome.cases, 2, "{outcome:?}");
@@ -284,6 +286,7 @@ fn rows_written_differently_fail_replay_through_the_db_dump() {
         effects,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     assert!(outcome.unstable.is_empty(), "{outcome:?}");
@@ -393,6 +396,7 @@ fn same_mail_with_different_mime_framing_matches_unless_smtp_raw() {
         effects,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     assert!(outcome.unstable.is_empty(), "{outcome:?}");
@@ -419,6 +423,7 @@ fn same_mail_with_different_mime_framing_matches_unless_smtp_raw() {
         effects: raw_effects,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     assert!(raw_outcome.unstable.is_empty(), "{raw_outcome:?}");
@@ -490,6 +495,7 @@ fn db_reset_and_dump_run_where_the_case_runs() {
         effects,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     assert!(outcome.unstable.is_empty(), "{outcome:?}");
@@ -579,6 +585,7 @@ else:
         effects,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     assert!(outcome.unstable.is_empty(), "{outcome:?}");
@@ -685,6 +692,7 @@ fn shadow_lets_the_original_mail_once_and_sends_the_build_mail_to_a_sink() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
 

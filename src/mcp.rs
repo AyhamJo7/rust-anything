@@ -458,6 +458,7 @@ const TOOL_META: &[ToolMeta] = &[
     ),
     meta("map", "Map the port", [true, false, true, false]),
     meta("rules", "Port rules", [false, false, true, false]),
+    meta("log", "Read the audit log", [true, false, true, false]),
     meta("package", "Lay out packages", [false, false, true, false]),
     meta(
         "app_record",
@@ -550,6 +551,7 @@ fn tool_schemas() -> Value {
                 "profile": { "type": "string", "enum": ["host", "android"], "description": "Record on this machine (default) or on a connected Android device (JVM crates)." },
                 "device": { "type": "string", "description": "Android device serial; picked automatically when only one is connected." },
                 "pin_clock": { "type": "boolean", "description": "TS/JS (napi) and Python: true pins the clock and random numbers while recording and diffing (`Date.now()`, `new Date()`, `Math.random`; `time.time`, `datetime.now`, `random`) to the values in pinned.json, and writes src/port/pinned.rs for the port to read them (`mod pinned;` in port.rs). Kept for later runs; false stops pinning." },
+                "sandbox": { "type": "boolean", "description": "Run the original with no network, its repository read-only and CPU and memory limits: bubblewrap on Linux, sandbox-exec on macOS. Fails when the tool is missing rather than recording unsandboxed. Not with test_command or profile android." },
             }, "required": ["crate"] },
         },
         {
@@ -657,10 +659,17 @@ fn tool_schemas() -> Value {
         },
         {
             "name": "map",
-            "description": "Port map of a repository: each unit of the original with the crate that ports it, its functions in Rust and kept in the original, its cases and last diff, the whole app's glue (Rust only, or still handing cases to the original), the units not ported yet in the order analyze suggests, and every port whose original changed since it was recorded (`changed_upstream`: re-record it and diff). Read-only; the CLI's `map --write` saves it as rust/PORT_MAP.md.",
+            "description": "Port map of a repository: each unit of the original with the crate that ports it, its functions in Rust and kept in the original, its cases and last diff, the whole app's glue (Rust only, or still handing cases to the original), the units not ported yet in the order analyze suggests, every port whose original changed since it was recorded (`changed_upstream`: re-record it and diff), and each port's last switch from the audit log (`last_change`). Read-only; the CLI's `map --write` saves it as rust/PORT_MAP.md.",
             "inputSchema": { "type": "object", "properties": {
                 "repo": { "type": "string", "description": "Repository root." },
                 "crates": { "type": "array", "items": { "type": "string" }, "description": "Folders with crates kept outside the repository." }
+            }, "required": ["repo"] },
+        },
+        {
+            "name": "log",
+            "description": "The audit log of a repository (rust/audit.jsonl, append-only, committed with the port): every enable, disable, app_wire and app_lift, and each gate result, oldest first. Each entry has the UTC time, the command, the unit and crate, what changed (functions switched on or off, `forced: true` when switched on without matching cases, routes wired, units lifted), gate pass or fail with check and case counts, the rust-anything version and the repository's git commit. Read it to see what changed what runs in production, and when; it holds no user names or emails.",
+            "inputSchema": { "type": "object", "properties": {
+                "repo": { "type": "string", "description": "Repository root, or a crate folder made by `bridge`." }
             }, "required": ["repo"] },
         },
         {
@@ -715,6 +724,7 @@ fn tool_schemas() -> Value {
                 "ready": { "type": "string", "description": "Servers: a request that says the app is ready once it answers 2xx, e.g. \"GET /health\", for a framework that opens its port before its routes work. Implies http; saved with the cases and used by replay and the front door." },
                 "float_tolerance": { "type": "number", "description": "Numeric output: numbers match when they differ by at most this times the larger magnitude (absolute below 1), e.g. 1e-9. Saved with the cases; 0 removes it." },
                 "float_file": { "type": "array", "items": { "type": "string" }, "description": "Written files of raw floats, compared value by value within float_tolerance: `PATH=f32le` or `PATH=f64le`. Saved with the cases." },
+                "sandbox": { "type": "boolean", "description": "Run the original with no network, the repository read-only and CPU and memory limits: bubblewrap on Linux, sandbox-exec on macOS. Fails when the tool is missing rather than recording unsandboxed. On macOS loopback stays open for http and effects; on Linux they do not combine with it." },
             }, "required": ["repo"] },
         },
         {
@@ -996,12 +1006,17 @@ fn call(name: &str, args: &Value) -> Result<Value> {
                 .transpose()?;
             let ignore_key_order = opt_bool(args, "ignore_key_order")?;
             let pin_clock = opt_bool(args, "pin_clock")?;
+            let sandbox = opt_bool(args, "sandbox")?.unwrap_or(false);
             let count = opt_usize(args, "count")?.unwrap_or(200);
             let mut inputs = opt_path("inputs")?;
             // Read before the test capture below, which runs the test command and writes files.
             let module = opt_path("module")?;
             let resolve_from = opt_path("resolve_from")?;
             let test_command = strings("test_command");
+            anyhow::ensure!(
+                !sandbox || test_command.is_empty(),
+                crate::from_tests::NOT_SANDBOXED
+            );
             let captured = if test_command.is_empty() {
                 None
             } else {
@@ -1038,6 +1053,7 @@ fn call(name: &str, args: &Value) -> Result<Value> {
                 module: module.as_deref(),
                 resolve_from: resolve_from.as_deref(),
                 node_args: &strings("node_args"),
+                sandbox,
             };
             let device = args["device"].as_str();
             let mut out = serde_json::to_value(match profile {
@@ -1187,6 +1203,7 @@ fn call(name: &str, args: &Value) -> Result<Value> {
             serde_json::to_value(crate::port_map::map(&path("repo")?, &crates)?)?
         }
         "rules" => serde_json::to_value(crate::rules::add(&path("root")?, &strings("add"))?)?,
+        "log" => serde_json::to_value(crate::audit::read(&path("repo")?)?)?,
         "package" => {
             let crate_dir = path("crate")?;
             serde_json::to_value(crate::package::package(&crate::package::Options {
@@ -1260,11 +1277,22 @@ fn call(name: &str, args: &Value) -> Result<Value> {
                 }
                 crate::enable::enable(&crate_dir)?
             };
+            let selection = if partial {
+                Some("partial")
+            } else if only.is_empty() {
+                None
+            } else {
+                Some("only")
+            };
+            crate::audit::switched(&crate_dir, "enable", &on, selection, force);
             serde_json::to_value(on)?
         }
-        "disable" => serde_json::to_value(crate::enable::disable(&std::path::absolute(path(
-            "crate",
-        )?)?)?)?,
+        "disable" => {
+            let crate_dir = std::path::absolute(path("crate")?)?;
+            let off = crate::enable::disable(&crate_dir)?;
+            crate::audit::switched(&crate_dir, "disable", &off, None, false);
+            serde_json::to_value(off)?
+        }
         "report" => {
             let crate_dir = std::path::absolute(path("crate")?)?;
             let out = opt_path("out")?.map(std::path::absolute).transpose()?;
@@ -1328,6 +1356,7 @@ fn call(name: &str, args: &Value) -> Result<Value> {
                 ready_secs: opt_u64(args, "ready_timeout")?,
                 ready_request: ready.as_deref(),
                 effects,
+                sandbox: opt_bool(args, "sandbox")?.unwrap_or(false),
             })?)?
         }
         "app_replay" => {
@@ -1775,6 +1804,7 @@ mod tests {
                 "fuzz",
                 "shadow",
                 "map",
+                "log",
                 "rules",
                 "package",
                 "gate",

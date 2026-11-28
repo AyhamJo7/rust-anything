@@ -55,6 +55,7 @@ fn record(root: &Path) -> anyhow::Result<()> {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })?;
     assert!(recording.cases > 0);
     let driver_mod = std::fs::read_to_string(out.join(".rust-anything/go-original/go.mod"))?;

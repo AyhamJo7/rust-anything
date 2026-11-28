@@ -809,6 +809,9 @@ pub fn tests_check(crate_dir: &Path) -> Check {
 pub struct GateOutcome {
     pub passed: bool,
     pub checks: Vec<Check>,
+    /// Recorded cases the behavior check matched, for the audit log.
+    #[serde(skip)]
+    pub cases: Option<(usize, usize)>,
 }
 
 /// Format the text output for a `GateOutcome`. Every check's detail begins in the same
@@ -850,9 +853,17 @@ pub fn text(outcome: &GateOutcome) -> String {
     out
 }
 
+/// Runs every check and appends the result to the repository's audit log.
 pub fn gate(crate_dir: &Path, node_args: &[String]) -> Result<GateOutcome> {
+    let outcome = run(crate_dir, node_args)?;
+    crate::audit::gate(crate_dir, &outcome);
+    Ok(outcome)
+}
+
+fn run(crate_dir: &Path, node_args: &[String]) -> Result<GateOutcome> {
     let manifest = Manifest::load(crate_dir)?;
     let lockfile = lockfile_check(crate_dir);
+    let mut cases = None;
     let mut checks = rust_checks(crate_dir, &crate::cache::target_for(crate_dir)?.dir);
     checks.extend(lockfile);
     checks.extend(advisories_check(crate_dir));
@@ -919,6 +930,7 @@ pub fn gate(crate_dir: &Path, node_args: &[String]) -> Result<GateOutcome> {
             node_args,
         }) {
             Ok(d) => {
+                cases = Some((d.passed, d.total));
                 checks.push(Check {
                     fix: None,
                     name: "api",
@@ -989,7 +1001,11 @@ pub fn gate(crate_dir: &Path, node_args: &[String]) -> Result<GateOutcome> {
     if passed {
         save_tests_baseline(crate_dir)?;
     }
-    Ok(GateOutcome { passed, checks })
+    Ok(GateOutcome {
+        passed,
+        checks,
+        cases,
+    })
 }
 
 fn lockfile_check(crate_dir: &Path) -> Option<Check> {
@@ -1747,6 +1763,7 @@ mod tests {
     fn text_aligns_all_check_details_including_error_cases_and_known_diffs() {
         let outcome = GateOutcome {
             passed: true,
+            cases: None,
             checks: vec![
                 Check {
                     name: "tests",
@@ -1800,6 +1817,7 @@ mod tests {
     fn text_aligns_continuation_and_fix_lines_with_the_detail() {
         let outcome = GateOutcome {
             passed: false,
+            cases: None,
             checks: vec![
                 Check {
                     name: "ported",
