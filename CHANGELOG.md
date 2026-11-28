@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+- `record --sandbox` and `app record --sandbox` (MCP `record` and `app_record`: `sandbox`) run
+  the original with no network, its repository read-only and CPU and memory limits:
+  bubblewrap on Linux (`--unshare-net`, the file system read-only apart from the run's scratch
+  and work folders), sandbox-exec on macOS (writes refused in the repository, loopback kept for
+  `--http` and effect sinks, no memory limit). A missing tool fails with its install command
+  instead of recording unsandboxed, and `doctor` has a `sandbox` line.
+- An audit log of every change to what runs in production. `enable` (with `--only`, `--partial`
+  or `--force`), `disable`, `app wire`, `app lift` and `go` append a line to
+  `<repo>/rust/audit.jsonl`, and every `gate` appends its result: the time in UTC, the command,
+  the unit and crate, the functions switched, gate's pass or fail with check and case counts, the
+  rust-anything version and the repository's git commit, never a user name or email. A forced
+  `enable` is marked `"forced": true`. The file is only appended to. `rust-anything log <repo>`
+  (`--json`, and the MCP `log` tool) reads it, and `map` has a "Last change" column.
+
+- Swift units: `analyze` reads SwiftPM packages (targets, `.package(url:)` dependencies mapped to
+  crates, SwiftUI/UIKit files set aside as UI) and flags Swift's traps, grapheme-counted strings
+  and `Double` formatting; `bridge`, `record`, `build`, `diff` and `gate` cover a file's top-level
+  functions with `String`, integer, `Double`, `Bool`, optional, array and `[String: T]` types and
+  `throws`. The generated `swift/<Crate>.swift` keeps each function's labels and defaults and
+  calls Rust through a C module map; `record` compiles a driver with `swiftc` and keeps an `Int`
+  overflow as a trap, which a port matches by panicking (Swift crates build with
+  `overflow-checks`). `doctor` checks for `swiftc`. No `shadow`, `--batch`, `bench` or `profile`
+  for Swift yet (#200).
 - A port that imports `PathBuf` (`use std::path::PathBuf;`) and uses it in a signature gets
   bindings that compile: like `Value` and `HashMap`, the bare name is read with its path
   (`std::path::PathBuf`) where the bindings repeat the port's types (#891).

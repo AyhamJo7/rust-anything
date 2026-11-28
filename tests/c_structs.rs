@@ -278,6 +278,7 @@ fn structs_by_value_and_pointers_into_strings_cross_the_c_bridge() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     let generated: Vec<serde_json::Value> = std::fs::read_to_string(dir.join("cases.jsonl"))
@@ -323,6 +324,7 @@ fn structs_by_value_and_pointers_into_strings_cross_the_c_bridge() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     let cases = std::fs::read_to_string(dir.join("cases.jsonl")).unwrap();

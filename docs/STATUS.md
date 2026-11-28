@@ -1,6 +1,6 @@
 # Status
 
-What works, and how each part was last checked. Updated 2026-11-23.
+What works, and how each part was last checked. Updated 2026-11-28.
 
 **Verified**: run end to end (bridge, record, port, diff, gate) on real code someone else wrote,
 named below. **Tested**: covered by this repository's tests on fixtures written for them, not yet
@@ -22,6 +22,7 @@ front door); units cannot be bridged yet.
 | PHP | Verified | PEAR `XML_Util` 1.4.5 behind a facade (2026-11-22) | 1,838/1,838; gate passes. Top-level functions with scalar, string, list and assoc-array parameters, through `ext-ffi`; static methods, classes, objects, references, variadics, callables and generators stay in PHP with the reason; no `shadow`, no `--batch` |
 | PowerShell | Tested | none | `analyze`, bridge, record, build, diff, gate, `enable` and `disable` on a `.psm1` fixture (`tests/powershell.rs`, PowerShell 7.7 on macOS; CI runs it with `pwsh` on Linux and Windows). Functions with string, integer, double, bool/switch, array, hashtable and untyped parameters; filters, `process` blocks, pipeline input, script blocks, `[ref]` and other .NET types stay in PowerShell with the reason; no `shadow`, no `--batch`, no `profile` |
 | C# | Verified | Google.Protobuf 3.29.0's `CodedOutputStream.ComputeSize.cs` (2026-11-22) | 16 public static methods (6 kept in C#), 2,941/2,941 with 2 lone-surrogate cases listed in `known-diffs.jsonl`; gate passes. Records and POCOs as arguments, defaults, nullable, lists and dictionaries, and nested (`+`) exception types are tested on a fixture (`tests/loop.rs`); `shadow` and `--batch` are not available for C#; needs `dotnet` on PATH, so CI skips it |
+| Swift | Tested | none | `analyze`, bridge, record, build, diff and gate on a SwiftPM fixture (`tests/swift.rs`, Swift 6.4 on macOS arm64; not yet run on Linux or Windows). Top-level functions with `String`, integer, `Double`/`Float`, `Bool`, optional, array and `[String: T]` parameters and results, and `throws`: thrown errors are compared by type and `String(describing:)`, and an `Int` overflow is recorded as a trap and matched by a port that panics (the crate builds with `overflow-checks`). A port counting `chars()` where Swift counts graphemes, and one using `wrapping_add`, both fail `diff`. Methods, extensions, closures, `inout`, generics, `async`, `Set` and project types stay in Swift with the reason; printed output is not captured; no `shadow`, `--batch`, `bench` or `profile`; skipped without `swiftc` |
 
 Details of every run: [real-world.md](real-world.md) (TS/JS) and
 [real-world-languages.md](real-world-languages.md) (the others).
@@ -31,7 +32,7 @@ Details of every run: [real-world.md](real-world.md) (TS/JS) and
 | Command | Status | Notes |
 | --- | --- | --- |
 | `analyze` | Verified | every language above, x18n's 142 units |
-| `bridge`, `record`, `diff`, `gate`, `build` | Verified | the runs above; `bridge --as-json` on json-server's `paginate`; PHP and C# units in `tests/loop.rs` (skipped without `php` with FFI or without `dotnet`), PowerShell units in `tests/powershell.rs` (skipped without `pwsh` 7.4+) |
+| `bridge`, `record`, `diff`, `gate`, `build` | Verified | the runs above; `bridge --as-json` on json-server's `paginate`; PHP and C# units in `tests/loop.rs` (skipped without `php` with FFI or without `dotnet`), PowerShell units in `tests/powershell.rs` (skipped without `pwsh` 7.4+), Swift units in `tests/swift.rs` (skipped without `swiftc`) |
 | `build --profile android` | Tested | Kotlin fixture, one ABI per test run (all three built by hand), entry points and 16 KB alignment checked; `armeabi-v7a` library loaded on an Android 11 TV and called through JNI |
 | `record`/`diff --profile android` | Tested | Kotlin fixture on an Android 11 TV: record 291 cases under ART, then diff against the Android `.so` (12 of them did not match yet, not investigated); guarded test `tests/android_device.rs` skips without a device |
 | Types for untyped JS in `bridge` and `analyze` (sibling `.d.ts`/`.d.mts`/`.d.cts`, then JSDoc) | Tested | `tests/untyped_js_types.rs`; `analyze` uses `bridge`'s rules; tested there with a `.d.ts`, a class method and an alias (`tests/analyze.rs`) |
@@ -40,6 +41,7 @@ Details of every run: [real-world.md](real-world.md) (TS/JS) and
 | `fuzz` | Tested | TS/JS: finds a planted mismatch the recording missed, `--keep` makes `gate` fail (`tests/fuzz.rs`); other languages share the record/diff path untested |
 | `record --pin-clock` | Tested | TS/JS (napi): a unit using `Date.now()` and `Math.random` recorded and matched by a Rust port (`tests/fuzz.rs`); Python driver shares the algorithm, untested on a real port |
 | `record --from-tests` | Verified (TS/JS), Tested (Python) | vercel/ms's Jest suite |
+| `record --sandbox`, `app record --sandbox` | Tested (macOS) | `tests/sandbox.rs` on macOS 27.3 with sandbox-exec: a Python unit and a Python CLI that connect to a local port and write into their own folder do both without the flag and neither with it; a Python server still answers on loopback, and a CLI's effect sinks were checked by hand. The Linux path (bubblewrap, `--unshare-net`, read-only root) is written but not run yet: the tests skip without a working `bwrap`, and on Linux `--http` and effects do not combine with the flag. Not on Windows |
 | Coverage of the original in `record` and `gate` | Verified (TS/JS) | Fuse.js: cases run 81% of the lines it imports; other languages do not measure it yet |
 | `--batch` | Verified | Fuse.js, vercel/ms, x18n search |
 | wasm bridge (`--kind wasm`) | Verified | x18n search |
@@ -51,6 +53,7 @@ Details of every run: [real-world.md](real-world.md) (TS/JS) and
 | Shared build cache, `clean` | Tested | one owner per package name and per-crate copies in `src/cache.rs`; two crates named alike built into one shared folder keep their own library in `tests/switch.rs`. Front doors keep their own `target/` |
 | `map` | Tested | ports, upstream changes and `--crates` in `tests/port_map.rs` |
 | `gate`'s cheat guard (`literals`, `tests`, edited `cases.jsonl`) | Tested | a TS/JS stand-in crate in `tests/loop.rs` (three recorded outputs written into the port fail, `// recorded-literal:` lets them pass, a removed case fails while an appended one passes, a removed assertion fails) and literal scanning in `src/gate.rs`; not yet run on a real port |
+| Audit log (rust/audit.jsonl), `log` | Tested | `tests/audit.rs`: `enable` (`--force`, `--only`) and `disable` append one entry each and keep earlier lines byte for byte, a torn line is skipped and the next entry starts on its own line, `log` on a repository without a log writes nothing, `map` shows the last switch, the MCP `log` tool reads the same entries; gate entries (pass, then fail with the failed checks and case counts) in `tests/fuzz.rs`; `app wire` and `app lift` entries (refused lifts left out) in `tests/app.rs`'s lift runs. Not yet kept on a real port |
 | `rules` (rust/RULES.md) | Tested | `tests/rules.rs` (add, duplicates skipped, a crate folder resolves to its repository, `go`'s TASK.md carries the rules) and the MCP prompts in `src/mcp_prompts.rs`; not yet measured with an agent |
 | `app record`, `app replay` | Verified (servers and CLIs) | json-server: 514 HTTP cases with `--fresh`, `--arg`, `--pace`; Prettier: 17,224 CLI cases with `--inputs`, 63 of them with config files around the input; CLIs in `tests/app.rs`, CLI `--fresh` in `tests/app_fresh.rs` |
 | `app shadow` (servers) | Tested | a TS server shadowed by a build with a changed message: clients get the original's answers, one body mismatch logged without values, `--keep` re-recorded as a case (`tests/http.rs`); a Python server whose build mails twice mails once for real, the build into the sink (`tests/effects.rs`) |
@@ -87,7 +90,7 @@ prints what to use instead.
 | PHP | yes | yes (`php -S` front door) | JSON dispatcher over `ext-ffi` | yes (`php` with FFI) | no | no | no (SPX or Xdebug) | no |
 | C# | yes | yes (ASP.NET) | JSON dispatcher over P/Invoke | yes (`dotnet` on PATH) | no | no | no (`dotnet-trace`) | no |
 | C++ | no | yes (any program: `app record`/`app replay`) | no | no | no | no | no | no |
-| Swift | no | yes (any program: `app record`/`app replay`) | no | no | no | no | no | no |
+| Swift | yes | yes (any program: `app record`/`app replay`) | JSON dispatcher over the C ABI (module map) | yes (`swiftc` on PATH) | no | no | no (Instruments) | no |
 | Dart | no | yes (any program: `app record`/`app replay`) | no | no | no | no | no | no |
 | PowerShell | yes | yes (any program: `app record`/`app replay`) | JSON dispatcher over P/Invoke (Reflection.Emit) | yes (`pwsh` 7.4+) | no | yes | no (`Measure-Command`; start-up first) | no |
 | CUDA | no | yes (any program: `app record`/`app replay`) | no | no | no | no | no | no |
@@ -99,9 +102,9 @@ switches TS/JS, Python and PowerShell ports in place and points everything else 
 
 Where the cells come from: entry points in `whole_app.rs`, the unit-bridge guard in `lang/mod.rs`,
 the per-shape branches in `shadow.rs`, `enable.rs`'s `is_supported`, `profile.rs`'s alternatives for
-C, Kotlin, PHP, C# and PowerShell, and `package.rs`'s layout match.
+C, Kotlin, PHP, C#, PowerShell and Swift, and `package.rs`'s layout match.
 
-C++, Swift, Dart, CUDA and Assembly have no adapter yet, so `analyze` does not read their source; their
+C++, Dart, CUDA and Assembly have no adapter yet, so `analyze` does not read their source; their
 programs still run through the whole-app flow, which compares any runnable program's output.
 CMake is read only as part of C project discovery. Requested in #200, where the order is tracked.
 `go` needs `profile`, so it runs where `profile` does.
@@ -111,6 +114,7 @@ CMake is read only as part of C project discovery. Requested in #200, where the 
 CI installs Node, Python, Go, Ruby and Java on macOS and Windows, and runs the PowerShell tests
 with `pwsh` on Linux, macOS and Windows (installed when the runner image lacks it). It does not
 install PHP, .NET, Kotlin, the Android NDK or an Android device, so the PHP, C#, Kotlin and Android
-tests skip there and run only on a machine that has them. The Windows job runs only the
+tests skip there and run only on a machine that has them. `tests/swift.rs` runs wherever `swiftc`
+is on PATH (GitHub's macOS images ship Xcode); it has been run on macOS arm64 only. The Windows job runs only the
 `app::tests::shell_words` unit tests and the `analyze`, `diff_missing_folder`, `doctor` and `native`
 suites; the rest of `cargo test` runs on Ubuntu and macOS.

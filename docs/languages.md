@@ -13,13 +13,14 @@
 | <img src="https://rustanything.ai/langs/php.svg" width="16" height="16" alt=""> PHP | file or folder of top-level functions (`public static` methods stay in PHP) | a JSON dispatcher over `ext-ffi`, in a file that redeclares the functions with the original parameters | a generated PHP driver; whole apps with `app record`, `app replay` and the front door, for CLIs and servers (`php -S`) |
 | <img src="https://rustanything.ai/langs/powershell.svg" width="16" height="16" alt=""> PowerShell | `.psm1` module or `.ps1` script of functions with `param()` blocks (exported per `Export-ModuleMember`) | a JSON dispatcher over P/Invoke, declared at load time with Reflection.Emit, in a `.ps1` that redeclares each function with its original `param()` block | a generated `pwsh` driver (PowerShell 7.4+) |
 | <img src="https://rustanything.ai/langs/csharp.svg" width="16" height="16" alt=""> C# | file or folder of `public static` methods | a JSON dispatcher over P/Invoke, in `<namespace>.Rust` classes with the original methods | a generated reflection driver, compiled with the project's sources by `dotnet build`; whole apps with `app record`, `app replay` and the front door, for CLIs and ASP.NET servers (`dotnet <app>.dll`) |
+| Swift | file of top-level functions in a SwiftPM target or folder | a JSON dispatcher over the C ABI, in `swift/<Crate>.swift`, which redeclares each function with its labels, defaults and `throws` and imports a generated C module map | a generated `main.swift` driver, compiled by `swiftc` with the target's sources; a case that traps is recorded as a trap |
 
-Every language except C, PHP, C# and PowerShell also gets batch classes (`--batch`): the items cross once and stay in
+Every language except C, PHP, C#, PowerShell and Swift also gets batch classes (`--batch`): the items cross once and stay in
 Rust, and each call runs over all of them on all cores.
 
 The language is detected from the repository (`go.mod`, `pom.xml`, `build.gradle`/`build.gradle.kts`,
-a `.csproj` or `.sln`, `pyproject.toml`, `Gemfile`, `composer.json`, `package.json`, else the most
-common source files); a Gradle module with `.kt` sources and no `.java` sources is Kotlin, mixed
+a `.csproj` or `.sln`, `pyproject.toml`, `Gemfile`, `composer.json`, `package.json`, `Package.swift`,
+else the most common source files); a Gradle module with `.kt` sources and no `.java` sources is Kotlin, mixed
 modules stay Java. `--lang` overrides it. Types come from the source: TS types, Python hints, C, Go,
 Java, Kotlin and C# signatures, Ruby YARD tags, PHP types and phpdoc; untyped parameters used as
 numbers are inferred as numbers. [Types](types.md) lists what each one becomes in the port,
@@ -95,3 +96,19 @@ start-up of a new `pwsh` or `powershell.exe` per command (0.24 to 0.45 s for
 `pwsh -NoProfile -c 1` on the same M4), which no port fixes: keep one shell open and send it the
 commands (see the [FAQ](faq.md)).
 
+For Swift, `analyze` reads SwiftPM packages (`Package.swift` and its `.package(url:)`
+dependencies, mapped to crates), resolves `import` to the package's targets, sets aside files that
+import SwiftUI, UIKit or AppKit as UI, and flags what Swift does differently: traps on `Int`
+overflow, `!` and out-of-range indices, strings counted and compared by grapheme cluster, and the
+text form of a `Double`. A file's top-level functions with `String`, integer, `Double`/`Float`,
+`Bool`, optional, array and `[String: T]` parameters and results, and `throws`, are bridged through
+a C module map (`swiftc` on PATH to record and diff; Xcode or a Swift 5.9+ toolchain). Once `diff`
+passes, compile the generated `swift/<Crate>.swift` (`foo-rs` gives `swift/FooRs.swift`) into the
+target in place of the original file, with `-I swift` for the module map in
+`swift/<Crate>Native/` and `-L swift` for the built library. The crate builds with
+`overflow-checks = true`, so a port's `+` panics where Swift traps, and the wrapper turns a Rust
+panic into `fatalError`: `diff` compares a trap with a trap. A port's `Err("Type: message")` is
+thrown as `<Crate>Error` with that type name and message, and `diff` compares both with the
+original's error. Methods, extensions, closures, `inout`, generics, `async`, `Set` and the
+project's own types stay in Swift; there is no `shadow`, `--batch`, `bench` or `profile` for Swift
+yet ([issue #200](https://github.com/erkamyaman/rust-anything/issues/200)).

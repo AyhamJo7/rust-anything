@@ -1284,6 +1284,7 @@ fn analyze_refuses_a_folder_that_does_not_exist_in_every_language() {
         Lang::Kotlin,
         Lang::Php,
         Lang::Csharp,
+        Lang::Swift,
     ] {
         let err = rust_anything::analyze::analyze_lang(missing, lang)
             .expect_err("a missing folder is not an empty project");
@@ -1332,5 +1333,35 @@ fn analyze_reports_an_unreadable_parent_instead_of_a_missing_folder() {
         err.to_string(),
         format!("no folder {}", root.display()),
         "permission denied is not a missing folder"
+    );
+}
+
+#[test]
+fn swift_packages_are_detected_with_their_targets_risks_and_packages() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/swift-package");
+    let report = analyze(&root).unwrap();
+    assert_eq!(report.language, rust_anything::lang::Lang::Swift);
+    assert_eq!(report.summary.test_files, 1);
+    let text = report
+        .units
+        .iter()
+        .find(|u| u.files.iter().any(|f| f == "Sources/TextKit/TextKit.swift"))
+        .unwrap_or_else(|| panic!("{:?}", report.units));
+    assert_eq!(text.bridge, Bridge::SwiftFfi);
+    assert_eq!((text.exports, text.bridgeable), (6, 5), "{text:?}");
+    let risks: Vec<Risk> = text.risks.iter().map(|r| r.risk).collect();
+    for risk in [
+        Risk::GraphemeStrings,
+        Risk::Exceptions,
+        Risk::UnorderedIteration,
+    ] {
+        assert!(risks.contains(&risk), "{risk:?} in {risks:?}");
+    }
+    let w = rust_anything::whole_app::whole_app(&root, &report);
+    let names: Vec<&str> = w.dependencies.iter().map(|d| d.name.as_str()).collect();
+    assert!(names.contains(&"swift-algorithms"), "{names:?}");
+    assert_eq!(
+        rust_anything::lang::swift::lookup("swift-algorithms").map(|m| m.crates),
+        Some("itertools")
     );
 }

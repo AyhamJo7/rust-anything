@@ -654,7 +654,14 @@ fn asset_items(repo: &Path, sources: &[PathBuf]) -> Vec<Item> {
     items
 }
 
+/// Lifts the app and, when it did, appends the lift to the repository's audit log.
 pub fn lift(opts: &LiftOptions) -> Result<LiftOutcome> {
+    let outcome = lift_app_dir(opts)?;
+    crate::audit::lifted(opts.repo, &outcome);
+    Ok(outcome)
+}
+
+fn lift_app_dir(opts: &LiftOptions) -> Result<LiftOutcome> {
     let repo = opts
         .repo
         .canonical()

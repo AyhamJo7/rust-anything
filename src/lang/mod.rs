@@ -15,6 +15,7 @@ pub mod php;
 pub mod powershell;
 pub mod python;
 pub mod ruby;
+pub mod swift;
 pub mod syntax;
 
 /// Why an export of an overloaded name stays in the original: the bindings name each export by
@@ -48,6 +49,7 @@ pub enum Lang {
     Php,
     Csharp,
     Powershell,
+    Swift,
 }
 
 impl Lang {
@@ -63,6 +65,7 @@ impl Lang {
             Self::Php => "PHP",
             Self::Csharp => "C#",
             Self::Powershell => "PowerShell",
+            Self::Swift => "Swift",
         }
     }
 
@@ -80,6 +83,7 @@ impl Lang {
             Self::Php => "Composer",
             Self::Csharp => "NuGet",
             Self::Powershell => "the PowerShell Gallery",
+            Self::Swift => "Swift packages",
         }
     }
 
@@ -169,6 +173,9 @@ impl Lang {
         if has("package.json") {
             return Some(Self::Ts);
         }
+        if has("Package.swift") {
+            return Some(Self::Swift);
+        }
         let mut counts = [0usize; Self::ALL.len()];
         for entry in crate::walk::builder(root)
             .hidden(true)
@@ -197,7 +204,7 @@ impl Lang {
         Some(Self::ALL[best])
     }
 
-    const ALL: [Self; 10] = [
+    const ALL: [Self; 11] = [
         Self::Ts,
         Self::Python,
         Self::C,
@@ -208,6 +215,7 @@ impl Lang {
         Self::Php,
         Self::Csharp,
         Self::Powershell,
+        Self::Swift,
     ];
 
     /// Starts of a line that is a comment, not code, for counting lines of code. `* ` and `*/`
@@ -236,6 +244,7 @@ impl Lang {
             Self::Php => &["php"],
             Self::Csharp => &["cs"],
             Self::Powershell => &["ps1", "psm1"],
+            Self::Swift => &["swift"],
         }
     }
 }
@@ -259,6 +268,7 @@ pub fn discover(lang: Lang, root: &Path) -> anyhow::Result<crate::ts::discover::
         Lang::Php => php::discover(root),
         Lang::Csharp => csharp::discover(root),
         Lang::Powershell => powershell::discover(root),
+        Lang::Swift => swift::discover(root),
         _ => anyhow::bail!("{} is not supported yet", lang.name()),
     }
 }
@@ -274,6 +284,7 @@ pub fn scan(lang: Lang, _path: &str, text: &str) -> crate::ts::scan::FileFacts {
         Lang::Php => php::scan(text),
         Lang::Csharp => csharp::scan(text),
         Lang::Powershell => powershell::scan(text),
+        Lang::Swift => swift::scan(text),
         _ => crate::ts::scan::FileFacts::default(),
     }
 }
@@ -300,6 +311,7 @@ pub fn resolve(
         Lang::Php => php::resolve(from, spec, index, ws),
         Lang::Csharp => csharp::resolve(spec, index, ws),
         Lang::Powershell => powershell::resolve(from, spec, index, ws),
+        Lang::Swift => swift::resolve(spec, index, ws),
         _ => Resolution::Unresolved,
     }
 }
@@ -322,6 +334,7 @@ pub fn exports(
         Lang::Php => (php::exports(path, text), Vec::new()),
         Lang::Csharp => (csharp::exports(path, text), Vec::new()),
         Lang::Powershell => (powershell::exports(path, text), Vec::new()),
+        Lang::Swift => (swift::exports(path, text), Vec::new()),
         _ => (Vec::new(), Vec::new()),
     }
 }
@@ -337,6 +350,7 @@ pub fn lookup(lang: Lang, name: &str) -> Option<crate::ts::deps::CrateMatch> {
         Lang::Php => php::lookup(name),
         Lang::Csharp => csharp::lookup(name),
         Lang::Powershell => powershell::lookup(name),
+        Lang::Swift => swift::lookup(name),
         _ => None,
     }
 }

@@ -86,9 +86,14 @@ Install Rust Anything with npm i -g rust-anything, then run rust-anything setup.
 Yoki o'zingiz o'rnating:
 
 ```sh
-cargo install rust-anything   # or: npm install -g rust-anything
-rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CLI and OpenCode
+cargo install rust-anything   # yoki: npm install -g rust-anything
+rust-anything setup           # uni Claude Code, Codex, Cursor, Gemini CLI va OpenCode'ga qo'shadi
+rust-anything doctor          # asl dasturingizga kerak bo'lgan runtime'larni tekshiradi, har biri uchun tuzatish yo'li bilan
 ```
+
+> [!WARNING]
+> Yozib olish asl dasturning haqiqiy kodini ishga tushiradi. Nusxa ustida ishlang va serverni test ma'lumotlar bazasiga yo'naltiring.
+> `record --sandbox` va `app record --sandbox` uni tarmoqsiz, repozitoriyni faqat o'qish rejimida va CPU hamda xotira cheklovlari bilan ishga tushiradi (Linux'da bubblewrap, macOS'da sandbox-exec; `doctor` u bor-yo'qligini tekshiradi).
 
 > [!TIP]
 > **Agentlar:** o'rnatish qadamlari, barcha buyruqlar va portlash jarayoni uchun [rustanything.ai/llms.txt](https://rustanything.ai/llms.txt) ni o'qing.
@@ -104,6 +109,23 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 
 **Nima tayyor hisoblanadi.** Sizning testlaringiz emas, xatti-harakat. `record` asl dasturni generatsiya qilingan va berilgan kirish ma'lumotlarida ishga tushiradi va har bir chaqiruv nima qaytarishi, nima tashlashi va nima chop etishini saqlaydi. Port `gate` o'tganda tayyor bo'ladi: yozib olingan har bir holat mos keladi, shuningdek fmt, clippy, `cargo test`, `unsafe` tekshiruvi, stub tekshiruvi va portga qo'yilgan yozib olingan javoblarni tekshirish ham o'tadi. O'z testlaringiz ham ishga tushadi.
 
+**Testlaringiz holatlarga aylanadi.** `record --from-tests -- npx jest` (yoki `pytest`) asl dasturning o'z test to'plamini ishga tushiradi va uning birlikka qilgan har bir chaqiruvini yozib oladi. `--pin-clock` ikkala tomonda ham soat va tasodifiy sonlarni qotiradi, shuning uchun sanaga bog'liq kod ham mos kelishi mumkin.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/how-it-works-app-dark.svg">
+    <img src="assets/how-it-works-app-light.svg" width="880" alt="Butun ilovani portlash: analyze uni rejalashtiradi, qarorlarni siz qabul qilasiz, app record uning haqiqiy xatti-harakatini yozib oladi, front door asl dastur oldida Rust'ni ishga tushiradi, birliklar hech narsa asl dasturga qaytmay qolguncha birma-bir ko'chadi, so'ng lift sof Rust ilovasini qoldiradi">
+  </picture>
+</p>
+
+**Butun ilovalar: CLI va serverlar.** `app record` CLI'ni (chiqish kodi, stdout, stderr, yozilgan fayllar) yoki `--http` bilan serverning har bir so'rovga bergan javoblarini yozib oladi. `app front-door` `rust/app` yaratadi: kirish nuqtasini o'z zimmasiga oladigan va hali portlanmagan hamma narsani asl dasturga uzatadigan Rust binar fayli. `app wire` birliklarni birma-bir ko'chiradi, fallback ulushi nolga tushguncha `app replay` 100% da turishi kerak, `app lift` esa sof Rust ilovasini qoldiradi.
+
+**Yon ta'sirlar ham hisobga olinadi.** Webhook yoki xatni yuborishni unutgan port muvaffaqiyatsiz bo'lishi kerak. `app record --effects http,smtp` (yoki `--effect-env WEBHOOK_URL=http-url`) ilovani har bir chiquvchi chaqiruv va xatni yozib oladigan mahalliy o'rinbosarlarga yo'naltiradi, `--db-dump "sqlite3 app.db .dump"` esa har bir so'rovdan keyin ma'lumotlar bazasini yozib oladi; replay port ham shunday qilishini tekshiradi.
+
+**Asl dastur o'zgarishda davom etyaptimi?** `app drift` asl dasturni uning yozuviga qarshi qayta ishga tushiradi va endi boshqacha javob beradiganlarni sanab chiqadi, [GitHub Action](install.md#in-ci) esa har bir push'da `gate` ishga tushiradi.
+
+**Qarorni siz qabul qilasiz.** Portning xatti-harakatini tuzatganingizda, `rules --add "<rule>"` uni saqlaydi va keyingi har bir agent prompti uni o'z ichiga oladi. rust-anything yozadigan hamma narsa `<repo>/rust/` ichida turadi.
+
 **Hisobot yoki migratsiya, o'zingiz tanlaysiz.** `analyze` va `profile` faqat hisobot beradi: nimani portlash kerakligi bo'yicha tartiblangan reja va real yuklama ostida nima eng ko'p vaqt olishi. Bular oddiy buyruqlar, shuning uchun hisobot hech qanday token sarflamaydi. `go` bitta birlikni ko'chiradi: eng qaynoq funksiya uchun ko'prik quradi, uni yozib oladi, portni agentingizga beradi, so'ng yig'adi, solishtiradi va `gate` orqali o'tkazadi, hammasi mos kelgandagina yoqadi (TS/JS, Python va PowerShell; `disable` uni qayta o'chiradi).
 
 **Bitta ishga tushirish qancha davom etadi.** Bitta `go` ishga tushirishi bitta birlikni portlaydi, ko'pi bilan `--rounds` agent navbati bilan (standart 3): biri port uchun, so'ng har bir muvaffaqiyatsiz diff yoki gate uchun bittadan. Butun ilova har bir birlik uchun bitta ishga tushirishdan iborat, shuning uchun istalganidan keyin to'xtashingiz mumkin.
@@ -111,6 +133,45 @@ rust-anything setup           # adds it to Claude Code, Codex, Cursor, Gemini CL
 **Reja uchun arzon model, port uchun kuchli model.** Rejaga model kerak emas. Port uchun istalgan agent buyrug'ini bering: `rust-anything go --agent "claude --model <model>" -- <workload>`.
 
 **Agentlar.** `rust-anything setup` uni Claude Code, Codex, Cursor, Gemini CLI va OpenCode'ga qo'shadi. Har qanday boshqa MCP mijozi `rust-anything mcp` ni ishga tushira oladi, skill esa `npx skills add erkamyaman/rust-anything` orqali alohida ham o'rnatiladi ([o'rnatish](install.md) bo'limiga qarang).
+
+## Tillar
+
+| Til | Maqomi | Nimada tekshirilgan |
+| --- | --- | --- |
+| TypeScript/JavaScript | Tasdiqlangan | ESLint, Prettier, json-server, Fuse.js, vercel/ms |
+| Python | Tasdiqlangan | CPython'ning `colorsys` moduli (2,400/2,400 holat) |
+| Go | Tasdiqlangan | Go'ning `path` paketi (2,642/2,642) |
+| Ruby | Tasdiqlangan | Ruby 3.3 dagi `shellwords` (1,617/1,617) |
+| Java | Tasdiqlangan | Fasad ortidagi JDK 21 (4,492/4,492) |
+| C | Tasdiqlangan | ffmpeg'ning libavutil'i, glibc |
+| C# | Tasdiqlangan | Google.Protobuf (2,941/2,941) |
+| PHP | Tasdiqlangan | PEAR `XML_Util` (1,838/1,838) |
+| Kotlin | Sinalgan | ushbu repozitoriyning fixture'lari, Android ham |
+| PowerShell | Sinalgan | ushbu repozitoriyning fixture'lari |
+| Swift | Sinalgan | ushbu repozitoriyning fixture'lari |
+
+**Tasdiqlangan** boshqa birov yozgan haqiqiy kodda boshidan oxirigacha portlangan degani; **Sinalgan** ushbu repozitoriyning fixture'lardagi testlari bilan qamrab olingan degani. Har bir ishga tushirish, sanalari va qanday tekshirilgani bilan: [STATUS.md](STATUS.md).
+
+## Buyruqlar
+
+| Buyruq | Nima qiladi |
+| --- | --- |
+| `rust-anything go -- <workload>` | Profillaydi, eng qaynoq funksiya uchun ko'prik quradi, uni yozib oladi, portni agentingizga beradi, gate orqali o'tkazadi, yoqadi |
+| `rust-anything analyze <repo>` | Tartiblangan migratsiya rejasi: birliklar, tayyorlik, xavflar, bog'liqliklar |
+| `rust-anything profile <repo> -- <workload>` | Real yuklama ostida nima eng qaynoq, nimani portlash yoki guruhlash kerak |
+| `rust-anything bridge <repo> <unit>` | Bitta birlik uchun bog'lamalari bor Rust crate, stub'lar `src/port.rs` ichida |
+| `rust-anything record <crate>` | Asl dastur nima qaytarishi, nima tashlashi va nima chop etishini yozib oladi (`--inputs`, `--from-tests`, `--pin-clock`) |
+| `rust-anything diff <crate>` | Yozib olingan har bir holatni Rust moduliga qarshi qayta ishga tushiradi |
+| `rust-anything bench <crate>` | Yozib olingan holatlarda asl dastur va Rust vaqtini o'lchaydi, ko'prik bilan birga |
+| `rust-anything fuzz <crate>` | Ikkala tomonga yangi kirish ma'lumotlari: yozuv qamramagan narsalar |
+| `rust-anything gate <crate>` | Tayyorlikning ta'rifi |
+| `rust-anything enable` / `disable <crate>` | Chaqiruvchilarni Rust'ga o'tkazadi yoki qaytaradi |
+| `rust-anything report <crate>` | `REPORT.md` va pull request uchun karta |
+| `rust-anything app record` / `front-door` / `wire` / `replay` / `lift` / `drift` | Butun CLI yoki serverni portlaydi |
+| `rust-anything rules <repo> --add "<rule>"` | Siz tuzatgan xatti-harakat, keyingi har bir port saqlaydi |
+| `rust-anything map <repo>` | Har bir birlik, uning crate'i, holatlari va oxirgi diff |
+| `rust-anything log <repo>` | Har bir yoqish yoki o'chirish, har bir wire, lift va gate natijasi, `rust/audit.jsonl` ichidan |
+| `rust-anything setup` / `doctor` / `mcp` | Agentlar uchun o'rnatish, runtime'larni tekshirish, MCP server |
 
 ## Litsenziya
 

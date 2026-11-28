@@ -232,7 +232,12 @@ fn driver(
     run(&mut cmd, &format!("java driver ({mode})"))
 }
 
-pub fn record(crate_dir: &Path, m: &Manifest, cases: &[Value]) -> Result<PathBuf> {
+pub fn record(
+    crate_dir: &Path,
+    m: &Manifest,
+    cases: &[Value],
+    sandbox: Option<&Path>,
+) -> Result<PathBuf> {
     std::fs::create_dir_all(crate_dir.join(WORK_DIR))?;
     let out = crate_dir.join(CASES);
     crate::harness::record_cases(
@@ -240,6 +245,7 @@ pub fn record(crate_dir: &Path, m: &Manifest, cases: &[Value]) -> Result<PathBuf
         &crate_dir.join(WORK_DIR),
         &out,
         "java driver (record)",
+        sandbox,
         |inputs, part| driver_command(crate_dir, m, "record", inputs, part, 0, false),
     )?;
     Ok(out)

@@ -227,6 +227,7 @@ fn record_and_diff_catch_a_behavior_change() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert_eq!(recorded.cases - recorded.traps, 360);
@@ -517,6 +518,7 @@ fn record_follows_bundler_style_imports() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     // The paths do not exist: every call throws, but the module loaded and ran.
@@ -538,6 +540,7 @@ fn record_registers_its_resolver_from_a_path_with_url_delimiters() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     });
     std::fs::remove_dir_all(&dir).unwrap();
     let recorded = result.unwrap();
@@ -756,6 +759,7 @@ fn classes_are_bridged_recorded_and_replayed() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert_eq!(recorded.cases, 300);
@@ -830,6 +834,7 @@ fn recording_substitutes_typescript_extensions_from_emitted_module_imports() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     });
     let evidence = std::fs::read_to_string(dir.join(harness::CASES));
     std::fs::remove_dir_all(root).unwrap();
@@ -873,6 +878,7 @@ fn tsconfig_aliases_are_followed() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert_eq!((recorded.cases - recorded.traps, recorded.errors), (5, 0));
@@ -923,6 +929,7 @@ fn record_prefers_an_exact_tsconfig_alias_to_a_matching_wildcard() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     });
     let evidence = std::fs::read_to_string(dir.join(harness::CASES));
     std::fs::remove_dir_all(root).unwrap();
@@ -960,6 +967,7 @@ fn record_resolves_workspace_packages_to_source() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert_eq!((recorded.cases - recorded.traps, recorded.errors), (10, 0));
@@ -1077,6 +1085,7 @@ fn python_modules_bridge_record_and_diff() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert!(recorded.cases > 200);
@@ -1219,6 +1228,7 @@ fn c_units_bridge_record_and_diff() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert_eq!(recorded.cases - recorded.traps, 120);
@@ -1312,6 +1322,7 @@ fn go_packages_bridge_record_and_diff() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert!(recorded.cases > 100, "{recorded:?}");
@@ -1398,6 +1409,7 @@ fn ruby_modules_bridge_record_and_diff() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert!(recorded.cases > 100, "{recorded:?}");
@@ -1686,6 +1698,7 @@ fn java_classes_bridge_record_and_diff() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert!(recorded.cases > 100, "{recorded:?}");
@@ -1826,6 +1839,7 @@ fn kotlin_functions_bridge_record_and_diff() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert!(recorded.cases > 50, "{recorded:?}");
@@ -2215,6 +2229,7 @@ fn php_functions_bridge_record_and_diff() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert!(recorded.cases > 100, "{recorded:?}");
@@ -2399,6 +2414,7 @@ fn csharp_static_methods_bridge_record_and_diff() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert!(recorded.cases > 200, "{recorded:?}");
@@ -2574,6 +2590,7 @@ fn python_float_subclass_records_as_its_float_value() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     let cases = std::fs::read_to_string(dir.join("cases.jsonl")).unwrap();
@@ -2616,6 +2633,7 @@ fn gate_catches_hard_coded_results_edited_recordings_and_removed_tests() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     let manifest = Manifest::load(&dir).unwrap();

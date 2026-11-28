@@ -347,6 +347,10 @@ pub fn profile(root: &Path, command: &[String], lang: Option<Lang>) -> Result<Re
              script whose own logic is slow, time its functions with `Measure-Command` and port \
              those"
         ),
+        Lang::Swift => bail!(
+            "`profile` does not run Swift workloads yet; use Instruments' Time Profiler (or \
+             `perf record -g` on Linux) and port the hot functions it shows"
+        ),
     };
     let _ = std::fs::remove_dir_all(&work);
     Ok(report(

@@ -50,6 +50,7 @@ fn record(root: &Path, module: &str) -> anyhow::Result<()> {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })?;
     assert!(recording.cases > 0);
     assert_eq!(recording.errors, 0);

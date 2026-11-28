@@ -96,7 +96,7 @@ mod tests {
     #[test]
     fn the_table_parses_and_every_entry_names_something() {
         let parsed = parse(TABLE).unwrap();
-        assert_eq!(parsed.len(), 9);
+        assert_eq!(parsed.len(), 10);
         for (lang, entries) in &parsed {
             for e in entries {
                 assert!(

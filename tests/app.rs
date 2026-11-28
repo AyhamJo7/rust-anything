@@ -91,6 +91,7 @@ fn record_then_replay(repo: &Path, run: &str, buggy: &str) {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     assert_eq!(outcome.examples, 7, "{outcome:?}");
@@ -669,6 +670,7 @@ fn lift_end_to_end(repo: &Path, run: &str, semantics: &Semantics, original: &str
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     let door = front_door::front_door(&FrontDoorOptions {
@@ -815,6 +817,27 @@ fn lift_end_to_end(repo: &Path, run: &str, semantics: &Semantics, original: &str
         check: false,
     });
     assert!(rewire.is_err());
+
+    // Each wire and the one lift that happened are in the audit log; refused lifts and the
+    // failed rewire changed nothing and are not.
+    let log = rust_anything::audit::read(repo).unwrap();
+    let changes: Vec<&str> = log.entries.iter().map(|e| e.change.as_str()).collect();
+    assert_eq!(
+        changes,
+        ["wire", "wire", "wire", "lift"],
+        "{:?}",
+        log.entries
+    );
+    let wired = &log.entries[2];
+    assert_eq!(wired.command, "app wire");
+    assert_eq!(wired.crate_dir.as_deref(), Some("rust/textops-rs"));
+    assert_eq!(wired.routes, ["upper", "len", "div", "copy", "now", "tcli"]);
+    assert!(wired.skipped_gate);
+    let lift = &log.entries[3];
+    assert_eq!(lift.command, "app lift");
+    assert_eq!(lift.units.len(), 2, "{lift:?}");
+    let cases = lift.cases.unwrap();
+    assert_eq!(cases.matched, cases.total);
     std::fs::remove_dir_all(repo).unwrap();
 }
 
@@ -1209,6 +1232,7 @@ fn drift_finds_upstream_changes_and_new_examples() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     let replay_report = app::cases_dir(&repo).join(app::REPORT_FILE);
@@ -1314,6 +1338,7 @@ fn drift_prints_singular_case_for_one_case_recording() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
 

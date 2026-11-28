@@ -6,7 +6,7 @@ Generated from the MCP server's tool list by `tests/tools.rs`; do not edit by ha
 
 Tool `analyze` · CLI `rust-anything analyze`
 
-Map a repository (TypeScript/JavaScript, Python, C, Go, Ruby, Java, Kotlin, PHP, C# or PowerShell): units, port order (waves), risks with file:line, bridge per unit, dependency-to-crate fit, and `start_here`: the best first ports.
+Map a repository (TypeScript/JavaScript, Python, C, Go, Ruby, Java, Kotlin, PHP, C#, PowerShell or Swift): units, port order (waves), risks with file:line, bridge per unit, dependency-to-crate fit, and `start_here`: the best first ports.
 
 Read-only.
 
@@ -69,6 +69,7 @@ Runs the original's code or commands.
 | `profile` | string |  | Record on this machine (default) or on a connected Android device (JVM crates). |
 | `device` | string |  | Android device serial; picked automatically when only one is connected. |
 | `pin_clock` | boolean |  | TS/JS (napi) and Python: true pins the clock and random numbers while recording and diffing (`Date.now()`, `new Date()`, `Math.random`; `time.time`, `datetime.now`, `random`) to the values in pinned.json, and writes src/port/pinned.rs for the port to read them (`mod pinned;` in port.rs). Kept for later runs; false stops pinning. |
+| `sandbox` | boolean |  | Run the original with no network, its repository read-only and CPU and memory limits: bubblewrap on Linux, sandbox-exec on macOS. Fails when the tool is missing rather than recording unsandboxed. Not with test_command or profile android. |
 
 ## Build crate
 
@@ -197,7 +198,7 @@ Runs the original's code or commands.
 
 Tool `fuzz` · CLI `rust-anything fuzz`
 
-Live differential test: generate fresh inputs from a new seed (the record generator, without the cases already recorded), run them through the original and the built port, and report mismatches the recording missed. Returns the seed to replay, counts and the first mismatches; `keep` appends mismatching (or all) fresh cases to cases.jsonl so the next diff and gate check them. Works wherever record and diff do on this machine (TS/JS, Python, C, Go, Ruby, Java, Kotlin, PHP, C#, PowerShell).
+Live differential test: generate fresh inputs from a new seed (the record generator, without the cases already recorded), run them through the original and the built port, and report mismatches the recording missed. Returns the seed to replay, counts and the first mismatches; `keep` appends mismatching (or all) fresh cases to cases.jsonl so the next diff and gate check them. Works wherever record and diff do on this machine (TS/JS, Python, C, Go, Ruby, Java, Kotlin, PHP, C#, PowerShell, Swift).
 
 Runs the original's code or commands.
 
@@ -228,7 +229,7 @@ Runs the original's code or commands.
 
 Tool `map` · CLI `rust-anything map`
 
-Port map of a repository: each unit of the original with the crate that ports it, its functions in Rust and kept in the original, its cases and last diff, the whole app's glue (Rust only, or still handing cases to the original), the units not ported yet in the order analyze suggests, and every port whose original changed since it was recorded (`changed_upstream`: re-record it and diff). Read-only; the CLI's `map --write` saves it as rust/PORT_MAP.md.
+Port map of a repository: each unit of the original with the crate that ports it, its functions in Rust and kept in the original, its cases and last diff, the whole app's glue (Rust only, or still handing cases to the original), the units not ported yet in the order analyze suggests, every port whose original changed since it was recorded (`changed_upstream`: re-record it and diff), and each port's last switch from the audit log (`last_change`). Read-only; the CLI's `map --write` saves it as rust/PORT_MAP.md.
 
 Read-only.
 
@@ -236,6 +237,18 @@ Read-only.
 | --- | --- | --- | --- |
 | `repo` | string | yes | Repository root. |
 | `crates` | string[] |  | Folders with crates kept outside the repository. |
+
+## Read the audit log
+
+Tool `log` · CLI `rust-anything log`
+
+The audit log of a repository (rust/audit.jsonl, append-only, committed with the port): every enable, disable, app_wire and app_lift, and each gate result, oldest first. Each entry has the UTC time, the command, the unit and crate, what changed (functions switched on or off, `forced: true` when switched on without matching cases, routes wired, units lifted), gate pass or fail with check and case counts, the rust-anything version and the repository's git commit. Read it to see what changed what runs in production, and when; it holds no user names or emails.
+
+Read-only.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `repo` | string | yes | Repository root, or a crate folder made by `bridge`. |
 
 ## Port rules
 
@@ -309,6 +322,7 @@ Runs the original's code or commands.
 | `ready` | string |  | Servers: a request that says the app is ready once it answers 2xx, e.g. "GET /health", for a framework that opens its port before its routes work. Implies http; saved with the cases and used by replay and the front door. |
 | `float_tolerance` | number |  | Numeric output: numbers match when they differ by at most this times the larger magnitude (absolute below 1), e.g. 1e-9. Saved with the cases; 0 removes it. |
 | `float_file` | string[] |  | Written files of raw floats, compared value by value within float_tolerance: `PATH=f32le` or `PATH=f64le`. Saved with the cases. |
+| `sandbox` | boolean |  | Run the original with no network, the repository read-only and CPU and memory limits: bubblewrap on Linux, sandbox-exec on macOS. Fails when the tool is missing rather than recording unsandboxed. On macOS loopback stays open for http and effects; on Linux they do not combine with it. |
 
 ## Replay app cases
 

@@ -26,7 +26,7 @@ use rust_anything::{
 #[command(
     name = "rust-anything",
     version,
-    about = "Rewrite TypeScript/JavaScript, Python, C, Go, Ruby, Java, Kotlin, PHP, C# or PowerShell apps in Rust, one verified piece at a time",
+    about = "Rewrite TypeScript/JavaScript, Python, C, Go, Ruby, Java, Kotlin, PHP, C#, PowerShell or Swift apps in Rust, one verified piece at a time",
     after_help = "Loop per unit: analyze -> bridge -> record -> port src/port.rs -> build -> diff -> shadow -> gate\nOnly the slow part: go --agent claude -- <workload>, then enable/disable and report"
 )]
 struct Cli {
@@ -174,6 +174,12 @@ enum Cmd {
         /// Stop pinning the clock and random numbers.
         #[arg(long)]
         no_pin_clock: bool,
+        /// Run the original with no network, its repository read-only and CPU and memory limits
+        /// (RUST_ANYTHING_SANDBOX_CPU seconds, 600 by default; RUST_ANYTHING_SANDBOX_MEMORY_MB,
+        /// 4096, Linux only): bubblewrap on Linux, sandbox-exec on macOS. Fails when the tool
+        /// is missing rather than recording unsandboxed.
+        #[arg(long)]
+        sandbox: bool,
     },
     /// 3b. Build the crate's native module for its language (napi-rs `.node` or wasm-bindgen output
     /// for TS/JS, a PyO3 extension for Python, a shared library for the others) or, with
@@ -400,7 +406,7 @@ enum Cmd {
         /// `<crate>/shadow/<name>.shadow.ts` (TypeScript), `<crate>/shadow/<name>_shadow.py`
         /// (Python), `<crate>/shadow/<name>_shadow.c` (C), `<crate>/go/shadow/<pkg>.go` (Go),
         /// `<crate>/ruby/<lib>_shadow.rb` (Ruby), and a folder, `<crate>/java/`, for Java and
-        /// Kotlin. PHP, C# and PowerShell have no shadow module yet and stop with an error.
+        /// Kotlin. PHP, C#, PowerShell and Swift have no shadow module yet and stop with an error.
         #[arg(long, short)]
         out: Option<PathBuf>,
     },
@@ -477,8 +483,8 @@ enum Cmd {
         json: bool,
     },
     /// Map the port: every unit of the original, the crate that ports it, its cases and last
-    /// diff, the whole app's glue, and which recordings the original changed past since they
-    /// were made. Commit the map (`--write`) to see upstream changes in it.
+    /// diff, its last switch from the audit log, the whole app's glue, and which recordings the
+    /// original changed past since they were made. Commit the map (`--write`) to see upstream changes in it.
     Map {
         /// Repository root.
         #[arg(default_value = ".")]
@@ -492,6 +498,16 @@ enum Cmd {
         /// Exit 1 when the original changed since any port was recorded.
         #[arg(long)]
         check: bool,
+        /// Print the machine-readable report as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// The audit log (rust/audit.jsonl): every enable, disable, app wire and app lift, and each
+    /// gate result, oldest first, with the time, the version and the commit.
+    Log {
+        /// Repository root, or a crate folder made by `bridge`.
+        #[arg(default_value = ".")]
+        repo: PathBuf,
         /// Print the machine-readable report as JSON.
         #[arg(long)]
         json: bool,
@@ -638,6 +654,11 @@ enum AppCmd {
         /// with the effects.
         #[arg(long, value_name = "COMMAND")]
         db_dump: Option<String>,
+        /// Run the original with no network, the repository read-only and CPU and memory limits,
+        /// as `record --sandbox` does. On macOS loopback stays open for `--http` and the effect
+        /// sinks; on Linux (bubblewrap) they do not combine with it.
+        #[arg(long)]
+        sandbox: bool,
         /// Print the machine-readable report as JSON.
         #[arg(long)]
         json: bool,
@@ -980,10 +1001,15 @@ fn run() -> Result<ExitCode> {
             device,
             pin_clock,
             no_pin_clock,
+            sandbox,
         } => {
             anyhow::ensure!(
                 profile != Profile::Host || device.is_none(),
                 "`--device` needs `--profile android`"
+            );
+            anyhow::ensure!(
+                !sandbox || !from_tests,
+                rust_anything::from_tests::NOT_SANDBOXED
             );
             anyhow::ensure!(
                 from_tests || test_command.is_empty(),
@@ -1050,6 +1076,7 @@ fn run() -> Result<ExitCode> {
                 module: module.as_deref(),
                 resolve_from: resolve_from.as_deref(),
                 node_args: &node_args,
+                sandbox,
             };
             let outcome = match profile {
                 Profile::Host => harness::record(&opts)?,
@@ -1501,6 +1528,14 @@ fn run() -> Result<ExitCode> {
                 }
                 rust_anything::enable::enable(&crate_dir)?
             };
+            let selection = if partial {
+                Some("partial")
+            } else if only.is_empty() {
+                None
+            } else {
+                Some("only")
+            };
+            rust_anything::audit::switched(&crate_dir, "enable", &on, selection, force);
             if json {
                 say!("{}", serde_json::to_string_pretty(&on)?);
             } else {
@@ -1528,6 +1563,7 @@ fn run() -> Result<ExitCode> {
         }
         Cmd::Disable { crate_dir, json } => {
             let off = rust_anything::enable::disable(&crate_dir)?;
+            rust_anything::audit::switched(&crate_dir, "disable", &off, None, false);
             if json {
                 say!("{}", serde_json::to_string_pretty(&off)?);
             } else if off.files.is_empty() {
@@ -1748,6 +1784,14 @@ fn run() -> Result<ExitCode> {
                 return Ok(ExitCode::FAILURE);
             }
         }
+        Cmd::Log { repo, json } => {
+            let log = rust_anything::audit::read(&repo)?;
+            if json {
+                say!("{}", serde_json::to_string_pretty(&log)?);
+            } else {
+                say_raw!("{}", rust_anything::audit::text(&log));
+            }
+        }
         Cmd::Doctor { json } => {
             let report = rust_anything::doctor::run();
             if json {
@@ -1821,6 +1865,7 @@ fn run_app(command: AppCmd) -> Result<ExitCode> {
             effect_response,
             db_reset,
             db_dump,
+            sandbox,
             json,
             run,
         } => {
@@ -1868,6 +1913,7 @@ fn run_app(command: AppCmd) -> Result<ExitCode> {
                 effects,
                 ready_secs: ready_timeout,
                 ready_request: ready.as_deref(),
+                sandbox,
             })?;
             if json {
                 say!("{}", serde_json::to_string_pretty(&outcome)?);

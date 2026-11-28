@@ -372,6 +372,7 @@ pub fn go(opts: &Options) -> Result<Outcome> {
             module: None,
             resolve_from: None,
             node_args: &[],
+            sandbox: false,
         })?;
         say(&mut steps, recorded_line(recorded.cases, recorded.errors));
     } else {
@@ -505,6 +506,7 @@ pub fn go(opts: &Options) -> Result<Outcome> {
 
     let mut out = if crate::enable::is_supported(&manifest) {
         let on = crate::enable::enable(&crate_dir)?;
+        crate::audit::switched(&crate_dir, "go", &on, None, false);
         say(
             &mut steps,
             format!(

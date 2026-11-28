@@ -184,7 +184,12 @@ fn driver_command(
     Ok(cmd)
 }
 
-pub fn record(crate_dir: &Path, m: &Manifest, cases: &[Value]) -> Result<PathBuf> {
+pub fn record(
+    crate_dir: &Path,
+    m: &Manifest,
+    cases: &[Value],
+    sandbox: Option<&Path>,
+) -> Result<PathBuf> {
     let driver = prepare(crate_dir, m, false)?;
     let out = crate_dir.join(CASES);
     let pending = crate_dir.join(WORK_DIR).join("recording.jsonl");
@@ -193,6 +198,7 @@ pub fn record(crate_dir: &Path, m: &Manifest, cases: &[Value]) -> Result<PathBuf
         &crate_dir.join(WORK_DIR),
         &pending,
         "C# driver (record)",
+        sandbox,
         |inputs, part| driver_command(crate_dir, m, &driver, "record", inputs, part, 0),
     )?;
     let recorded: std::collections::HashSet<String> = std::fs::read_to_string(&pending)?

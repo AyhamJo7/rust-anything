@@ -56,6 +56,13 @@ pub enum Risk {
     DateParsing,
     /// WHATWG `URL`/`URLSearchParams` and the encoding APIs (`TextEncoder`, `atob`).
     WebApis,
+    /// Swift stops the program on integer overflow, `!` on nil, an index out of range and
+    /// division by zero.
+    SwiftTraps,
+    /// Swift strings count, index and compare by grapheme cluster and canonical equivalence.
+    GraphemeStrings,
+    /// Swift's text form of a `Double`: shortest round-trip digits, `1.0`, `1e-05`, `inf`.
+    DoubleFormatting,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -107,6 +114,8 @@ impl Risk {
             }
             Self::Intl | Self::DateParsing => Severity::High,
             Self::WebApis => Severity::Medium,
+            Self::SwiftTraps | Self::GraphemeStrings => Severity::Medium,
+            Self::DoubleFormatting => Severity::Low,
         }
     }
 
@@ -143,6 +152,9 @@ impl Risk {
             Self::Intl => "Intl and locale-aware strings",
             Self::DateParsing => "Date parsing",
             Self::WebApis => "URL and encoding APIs",
+            Self::SwiftTraps => "Runtime traps (overflow, `!`, index out of range)",
+            Self::GraphemeStrings => "Strings counted in grapheme clusters",
+            Self::DoubleFormatting => "Double to text",
         }
     }
 
@@ -316,6 +328,31 @@ impl Risk {
                  replaces bad UTF-8 and drops a leading BOM, `btoa` takes Latin-1: port each \
                  exactly, and record malformed inputs."
             }
+            Self::SwiftTraps => {
+                "Swift stops the program where Rust's release build would go on: `Int` arithmetic \
+                 that overflows, `!` on `nil`, an array index out of range, `Int(x)` of a `Double` \
+                 out of range, division by zero. `record` keeps such a case as a trap. A Swift \
+                 crate builds with `overflow-checks = true` in release, so `+`, `-` and `*` panic \
+                 on overflow as Swift traps; the wrapper turns a Rust panic into `fatalError`, and \
+                 `diff` compares a trap with a trap. `&+`, `&-` and `&*` wrap: write \
+                 `wrapping_add`. Swift's `<<` past the width gives 0, where Rust's panics: write \
+                 `checked_shl(n).unwrap_or(0)`."
+            }
+            Self::GraphemeStrings => {
+                "A Swift `String`'s `count`, indices, `prefix`, `reversed` and `first` work on \
+                 grapheme clusters (\"👍🏽\" is 1, \"e\\u{301}\" is 1), and `==` compares canonical \
+                 equivalence (\"é\" equals \"e\\u{301}\"). Rust's `chars()` counts scalars and \
+                 `==` compares bytes: use `unicode-segmentation`'s `graphemes(true)` to count and \
+                 slice, and compare NFC forms (`unicode-normalization`). Record emoji, flags and \
+                 combining marks."
+            }
+            Self::DoubleFormatting => {
+                "`\\(x)`, `String(x)` and `description` of a `Double` print the shortest digits \
+                 that read back the same, with `.0` on whole numbers (`1.0`), exponents from 1e16 \
+                 and below 1e-4 (`1e+16`, `1e-05`), and `inf`, `-inf`, `nan`. Rust's `{}` prints \
+                 `1`, `10000000000000000` and `0.00001`. Write Swift's rules out in the port and \
+                 record whole numbers, tiny and huge values."
+            }
         }
     }
 }
@@ -384,6 +421,7 @@ pub fn uses_regex(lang: crate::lang::Lang, source: &str) -> bool {
                 .iter()
                 .any(|n| lower.contains(n))
         }
+        Lang::Swift => has(&["NSRegularExpression", "Regex", "#/", "try /"]),
     }
 }
 

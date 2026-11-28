@@ -62,6 +62,10 @@ pub(crate) const SKILL_FILES: &[(&str, &str)] = &[
         "languages/powershell.md",
         include_str!("../skills/rust-anything/languages/powershell.md"),
     ),
+    (
+        "languages/swift.md",
+        include_str!("../skills/rust-anything/languages/swift.md"),
+    ),
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum, Serialize)]

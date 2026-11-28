@@ -122,6 +122,9 @@ pub struct RecordOptions<'a> {
     /// Resolve npm packages the original imports from this folder's `node_modules`.
     pub resolve_from: Option<&'a Path>,
     pub node_args: &'a [String],
+    /// Run the original with no network, its repository read-only and CPU and memory limits
+    /// ([`crate::process::Sandbox`]).
+    pub sandbox: bool,
 }
 
 /// The dataclasses a Python file can take: its own and its package's, so a type imported from
@@ -461,32 +464,39 @@ pub(crate) fn record_with(
     manifest: &Manifest,
     cases: &[Value],
 ) -> Result<PathBuf> {
+    let sandbox = opts.sandbox.then_some(manifest.root.as_path());
     Ok(if manifest.language == crate::lang::Lang::Python {
-        crate::harness_py::record(opts.crate_dir, cases)?
+        crate::harness_py::record(opts.crate_dir, cases, sandbox)?
     } else if manifest.kind == Kind::CAbi {
-        crate::harness_c::record(opts.crate_dir, manifest, cases)?
+        crate::harness_c::record(opts.crate_dir, manifest, cases, sandbox)?
     } else if manifest.language == crate::lang::Lang::Go {
-        crate::harness_go::record(opts.crate_dir, manifest, cases)?
+        crate::harness_go::record(opts.crate_dir, manifest, cases, sandbox)?
     } else if manifest.language == crate::lang::Lang::Ruby {
-        crate::harness_ruby::record(opts.crate_dir, manifest, cases)?
+        crate::harness_ruby::record(opts.crate_dir, manifest, cases, sandbox)?
     } else if manifest.language == crate::lang::Lang::Php {
-        crate::harness_php::record(opts.crate_dir, manifest, cases)?
+        crate::harness_php::record(opts.crate_dir, manifest, cases, sandbox)?
     } else if manifest.language == crate::lang::Lang::Csharp {
-        crate::harness_csharp::record(opts.crate_dir, manifest, cases)?
+        crate::harness_csharp::record(opts.crate_dir, manifest, cases, sandbox)?
     } else if manifest.language == crate::lang::Lang::Powershell {
-        crate::harness_powershell::record(opts.crate_dir, manifest, cases)?
+        crate::harness_powershell::record(opts.crate_dir, manifest, cases, sandbox)?
+    } else if manifest.language == crate::lang::Lang::Swift {
+        crate::harness_swift::record(opts.crate_dir, manifest, cases, sandbox)?
     } else if manifest.language == crate::lang::Lang::Java {
-        crate::harness_java::record(opts.crate_dir, manifest, cases)?
+        crate::harness_java::record(opts.crate_dir, manifest, cases, sandbox)?
     } else if manifest.language == crate::lang::Lang::Kotlin {
-        crate::harness_kotlin::record(opts.crate_dir, manifest, cases)?
+        crate::harness_kotlin::record(opts.crate_dir, manifest, cases, sandbox)?
     } else {
-        record_node(opts, manifest, cases)?
+        record_node(opts, manifest, cases, sandbox)?
     })
 }
 
 /// Records on a connected Android device: the cases are generated here, the original Kotlin
 /// runs under ART, and the results come back as the same `cases.jsonl`.
 pub fn record_android(opts: &RecordOptions, device: Option<&str>) -> Result<RecordOutcome> {
+    anyhow::ensure!(
+        !opts.sandbox,
+        "`--sandbox` runs the original on this machine; it does not apply to `--profile android`"
+    );
     check_count(opts)?;
     let manifest = Manifest::load(opts.crate_dir)?;
     let (cases, traps, regex_functions) = generate_cases(opts, &manifest)?;
@@ -543,7 +553,12 @@ fn summarize(
 }
 
 /// Runs the recorded inputs through Node: the original TS/JS, with the resolve hook.
-fn record_node(opts: &RecordOptions, manifest: &Manifest, cases: &[Value]) -> Result<PathBuf> {
+fn record_node(
+    opts: &RecordOptions,
+    manifest: &Manifest,
+    cases: &[Value],
+    sandbox: Option<&Path>,
+) -> Result<PathBuf> {
     let work = opts.crate_dir.join(WORK_DIR);
     std::fs::create_dir_all(&work)?;
     let script = work.join("record.mjs");
@@ -569,7 +584,7 @@ fn record_node(opts: &RecordOptions, manifest: &Manifest, cases: &[Value]) -> Re
         })
         .transpose()?;
     let record = |transform: bool| {
-        record_cases(cases, &work, &out, "node", |inputs, part| {
+        record_cases(cases, &work, &out, "node", sandbox, |inputs, part| {
             let mut cmd = Command::new("node");
             if transform {
                 // Enums and parameter properties need Node to transform TS, not only strip types.
@@ -718,6 +733,16 @@ pub(crate) fn ensure_built(crate_dir: &Path, manifest: &Manifest) -> Result<()> 
                 crate_dir.display()
             );
         }
+        Kind::Ffi
+            if manifest.language == crate::lang::Lang::Swift
+                && crate::harness_swift::built_file(crate_dir, manifest).is_none() =>
+        {
+            bail!(
+                "no built library in {} (run `rust-anything build {}` first)",
+                crate_dir.join("swift").display(),
+                crate_dir.display()
+            );
+        }
         _ => {}
     }
     Ok(())
@@ -737,6 +762,9 @@ fn stale_build(crate_dir: &Path, manifest: &Manifest) -> Option<PathBuf> {
         }
         Kind::Ffi if manifest.language == crate::lang::Lang::Powershell => {
             crate::harness_powershell::built_file(crate_dir, manifest)?
+        }
+        Kind::Ffi if manifest.language == crate::lang::Lang::Swift => {
+            crate::harness_swift::built_file(crate_dir, manifest)?
         }
         _ => return None,
     };
@@ -800,6 +828,9 @@ pub fn build(crate_dir: &Path) -> Result<PathBuf> {
         }
         Kind::Ffi if manifest.language == crate::lang::Lang::Powershell => {
             crate::harness_powershell::build(crate_dir, &manifest)
+        }
+        Kind::Ffi if manifest.language == crate::lang::Lang::Swift => {
+            crate::harness_swift::build(crate_dir, &manifest)
         }
         Kind::CAbi | Kind::Ffi => crate::harness_c::build(crate_dir, &manifest),
         Kind::Napi => {
@@ -1104,6 +1135,9 @@ fn time_functions(opts: &BenchOptions) -> Result<Vec<BenchRow>> {
     if manifest.language == crate::lang::Lang::Powershell {
         return crate::harness_powershell::bench(opts.crate_dir, &manifest, opts.min_ms);
     }
+    if manifest.language == crate::lang::Lang::Swift {
+        return crate::harness_swift::bench(opts.crate_dir, &manifest, opts.min_ms);
+    }
     if manifest.language == crate::lang::Lang::Java {
         return crate::harness_java::bench(opts.crate_dir, &manifest, opts.min_ms);
     }
@@ -1406,6 +1440,12 @@ pub(crate) fn diff_exact(opts: &DiffOptions) -> Result<DiffOutcome> {
         && opts.module.is_none()
     {
         return crate::harness_powershell::diff(opts.crate_dir, &manifest);
+    }
+    if let Ok(manifest) = Manifest::load(opts.crate_dir)
+        && manifest.language == crate::lang::Lang::Swift
+        && opts.module.is_none()
+    {
+        return crate::harness_swift::diff(opts.crate_dir, &manifest);
     }
     if let Ok(manifest) = Manifest::load(opts.crate_dir)
         && manifest.language == crate::lang::Lang::Java
@@ -2095,7 +2135,7 @@ impl Rng {
 
 /// How long one recorded case may run before the original is stopped on it:
 /// `RUST_ANYTHING_CASE_TIMEOUT` seconds, 10 by default.
-fn case_timeout() -> std::time::Duration {
+pub(crate) fn case_timeout() -> std::time::Duration {
     std::env::var("RUST_ANYTHING_CASE_TIMEOUT")
         .ok()
         .and_then(|v| v.parse::<f64>().ok())
@@ -2107,12 +2147,14 @@ fn case_timeout() -> std::time::Duration {
 /// it starts to `RUST_ANYTHING_PROGRESS` and flushes each recorded line. A case that runs past
 /// the time limit (an input that makes the original allocate or loop for ever) stops the driver;
 /// the lines recorded so far are kept, that input is left out, and the driver goes on with the
-/// rest. Returns the inputs left out.
+/// rest. Returns the inputs left out. With `sandbox`, the repository kept read-only, the driver
+/// runs in a [`crate::process::Sandbox`] that may write only to `work` and its scratch folder.
 pub(crate) fn record_cases(
     cases: &[Value],
     work: &Path,
     out: &Path,
     what: &str,
+    sandbox: Option<&Path>,
     mut command: impl FnMut(&Path, &Path) -> Result<Command>,
 ) -> Result<Vec<Value>> {
     use std::process::Stdio;
@@ -2131,8 +2173,18 @@ pub(crate) fn record_cases(
         std::fs::write(&progress, "")?;
         let _ = std::fs::remove_file(&part);
         let mut cmd = command(&inputs, &part)?;
-        cmd.env("RUST_ANYTHING_PROGRESS", &progress)
-            .stdin(Stdio::null())
+        cmd.env("RUST_ANYTHING_PROGRESS", &progress);
+        let scratch = scratch_cwd(&mut cmd)?;
+        if let Some(read_only) = sandbox {
+            cmd = crate::process::Sandbox {
+                read_only,
+                scratch: scratch.as_ref().map_or(work, |s| s.0.as_path()),
+                writable: &[work],
+                loopback: false,
+            }
+            .wrap(&cmd, true)?;
+        }
+        cmd.stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(std::fs::File::create(&stderr_path)?);
         #[cfg(unix)]
@@ -2140,7 +2192,6 @@ pub(crate) fn record_cases(
             use std::os::unix::process::CommandExt as _;
             cmd.process_group(0);
         }
-        let _scratch = scratch_cwd(&mut cmd)?;
         let mut child = cmd
             .spawn()
             .map_err(|e| crate::process::spawn_error(&cmd, what, e))?;
@@ -2204,6 +2255,12 @@ pub(crate) fn record_cases(
 pub(crate) const TIMED_OUT: &str = "timed-out.json";
 
 pub(crate) struct Scratch(PathBuf);
+
+impl Scratch {
+    pub(crate) fn path(&self) -> &Path {
+        &self.0
+    }
+}
 
 impl Drop for Scratch {
     fn drop(&mut self) {

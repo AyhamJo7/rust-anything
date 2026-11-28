@@ -77,6 +77,7 @@ fn record(repo: &Path, run: &str, traps: bool) -> app::RecordOutcome {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap()
 }
@@ -175,6 +176,7 @@ fn a_server_started_for_replay_is_gone_after_it() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     let recorded = std::fs::read_to_string(&pid_file)
@@ -248,6 +250,7 @@ fn the_second_recording_gets_a_fresh_server_process() {
             effects: None,
             ready_secs: None,
             ready_request: None,
+            sandbox: false,
         })
         .unwrap();
         std::fs::read_to_string(&pid_file)
@@ -316,6 +319,7 @@ fn a_server_started_through_a_shell_is_gone_after_record() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     let pid = std::fs::read_to_string(repo.join("server.pid")).unwrap_or_default();
@@ -420,6 +424,7 @@ fn http_record_keeps_a_named_input_that_repeats_an_earlier_request() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     let again = std::fs::read_to_string(out.dir.join("3-count-again.body")).ok();
@@ -474,6 +479,7 @@ fn http_replay_sends_cases_in_the_order_they_were_recorded() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     let again = std::fs::read_to_string(out.dir.join("add-again.body")).ok();
@@ -517,6 +523,7 @@ fn a_ready_request_waits_until_the_routes_answer() {
         ready_secs: None,
         ready_request: Some("GET /health"),
         effects: None,
+        sandbox: false,
     })
     .unwrap();
     let saved =
@@ -607,6 +614,7 @@ fn a_ready_request_that_never_answers_2xx_fails_and_stops_the_server() {
         ready_secs: Some(20),
         ready_request: Some("GET /health"),
         effects: None,
+        sandbox: false,
     })
     .expect_err("a server that never answers 2xx must fail the recording");
     let waited = started.elapsed();
@@ -667,6 +675,7 @@ fn a_port_that_is_taken_is_named_before_the_build_runs() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap_err();
     let text = format!("{err:#}");
@@ -709,6 +718,7 @@ fn a_ready_timeout_shortens_the_wait_for_a_server_that_never_listens() {
         effects: None,
         ready_secs: Some(1),
         ready_request: None,
+        sandbox: false,
     })
     .unwrap_err();
     let waited = started.elapsed();
@@ -754,6 +764,7 @@ fn a_build_that_exits_before_listening_says_so() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap_err();
     let text = format!("{err:#}");
@@ -800,6 +811,7 @@ fn http_record_keeps_distinct_requests_with_the_same_name() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     let repeated = replay(&repo, None);
@@ -864,6 +876,7 @@ fn http_fresh_files_and_arguments_reach_every_start() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     let body = std::fs::read_to_string(out.dir.join("a2.body")).unwrap();
@@ -930,6 +943,7 @@ fn http_rerecord_uses_the_existing_fixed_port() {
             effects: None,
             ready_secs: None,
             ready_request: None,
+            sandbox: false,
         })
     };
     let first = record(Some(port));
@@ -1391,6 +1405,7 @@ fn http_fixed_port_rejects_existing_listener_and_early_exit() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap_err();
     assert!(
@@ -1420,6 +1435,7 @@ fn http_fixed_port_rejects_existing_listener_and_early_exit() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     assert!(recorded.cases > 0);
@@ -1513,6 +1529,7 @@ fn a_server_listening_only_on_ipv6_loopback_is_recorded_and_replayed() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     assert_eq!(out.cases, 1);
@@ -1603,6 +1620,7 @@ fn a_server_started_through_a_wrapper_is_stopped_with_it() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     });
     let still_listening = std::net::TcpStream::connect_timeout(
         &std::net::SocketAddr::from(([127, 0, 0, 1], port)),
@@ -1834,6 +1852,7 @@ http.server.HTTPServer(("127.0.0.1", port), H).serve_forever()
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     assert_eq!(rec.cases, 3, "{rec:?}");
@@ -1923,6 +1942,7 @@ http.server.HTTPServer(("127.0.0.1", int(os.environ["PORT"])), H).serve_forever(
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     assert_eq!(rec1.cases, 1);
@@ -2022,6 +2042,7 @@ http.server.HTTPServer(("127.0.0.1", int(os.environ["PORT"])), H).serve_forever(
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     });
     assert!(failed_clear.is_err());
     assert!(app::cases_dir(&repo).join("files/data/msg.txt").is_file());
@@ -2252,6 +2273,7 @@ fn shadow_answers_with_the_original_and_logs_the_build_mismatch_as_a_shape() {
         effects: None,
         ready_secs: None,
         ready_request: None,
+        sandbox: false,
     })
     .unwrap();
     assert_eq!(rerecorded.inputs, 1, "{rerecorded:?}");

@@ -149,6 +149,7 @@ fn report_on_a_built_crate_writes_markdown_and_svg_and_reflects_enable() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     assert!(recorded.cases > 0, "{recorded:?}");

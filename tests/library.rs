@@ -68,6 +68,7 @@ fn record(dir: &Path, count: usize) {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
 }

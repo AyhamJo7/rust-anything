@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use rust_anything::bridge::{RType, js_only_reason, param_type};
 use rust_anything::codegen_go::unsigned_port_type;
-use rust_anything::lang::{c, csharp, go, java, kotlin, php, powershell, python, ruby};
+use rust_anything::lang::{c, csharp, go, java, kotlin, php, powershell, python, ruby, swift};
 use rust_anything::ts::exports::{ExportedFn, Param};
 use rust_anything::ts::jsdoc;
 
@@ -25,6 +25,7 @@ const LANGUAGES: &[&str] = &[
     "Ruby",
     "PHP",
     "PowerShell",
+    "Swift",
 ];
 
 /// What the port makes of a type: its Rust type, or the reason it is refused. The reason is
@@ -89,6 +90,7 @@ fn port(language: &str, source: &str) -> Port {
                 .expect("a PowerShell type is written in brackets");
             powershell::ps_to_ts(ty).map_or(Err(None), |t| bridged(Ok(t)))
         }
+        "Swift" => bridged(swift::swift_to_ts(source)),
         other => panic!("no mapping for the section `{other}`"),
     }
 }

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1330" height="470" viewBox="0 0 1330 470" role="img" aria-label="Porting a whole app: analyze plans it, you settle the decisions, app record captures the app's real behavior, the front door runs Rust in front of the original, units move over one by one until nothing falls back, then lift leaves a pure Rust app">
+<rect x="0" y="40" width="200" height="150" rx="16" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="20" y="74" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14" font-weight="700" fill="#ec6a2c">PLAN</text>
+<text x="20" y="110" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="24" font-weight="700" fill="#e6edf3">analyze</text>
+<text x="20" y="140" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" fill="#9da7b3">Units, risks,</text>
+<text x="20" y="162" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" fill="#9da7b3">dependencies.</text>
+<rect x="265" y="40" width="200" height="150" rx="16" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="285" y="74" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14" font-weight="700" fill="#ec6a2c">YOU</text>
+<text x="285" y="110" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="24" font-weight="700" fill="#e6edf3">decisions</text>
+<text x="285" y="140" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" fill="#9da7b3">Settled before</text>
+<text x="285" y="162" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" fill="#9da7b3">any code moves.</text>
+<rect x="530" y="40" width="200" height="150" rx="16" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="550" y="74" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14" font-weight="700" fill="#ec6a2c">RECORD</text>
+<text x="550" y="110" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="22" font-weight="700" fill="#e6edf3">app record</text>
+<text x="550" y="140" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" fill="#9da7b3">The real CLI or</text>
+<text x="550" y="162" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" fill="#9da7b3">HTTP behavior.</text>
+<rect x="795" y="40" width="200" height="150" rx="16" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="815" y="74" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14" font-weight="700" fill="#ec6a2c">RUN</text>
+<text x="815" y="110" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="22" font-weight="700" fill="#e6edf3">front-door</text>
+<text x="815" y="140" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" fill="#9da7b3">Rust in front,</text>
+<text x="815" y="162" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" fill="#9da7b3">the rest falls back.</text>
+<line x1="200" y1="115" x2="256" y2="115" stroke="#6e7681" stroke-width="2"/><path d="M255,109 L265,115 L255,121 Z" fill="#6e7681"/>
+<line x1="465" y1="115" x2="521" y2="115" stroke="#6e7681" stroke-width="2"/><path d="M520,109 L530,115 L520,121 Z" fill="#6e7681"/>
+<line x1="730" y1="115" x2="786" y2="115" stroke="#6e7681" stroke-width="2"/><path d="M785,109 L795,115 L785,121 Z" fill="#6e7681"/>
+<rect x="300" y="270" width="740" height="170" rx="22" fill="none" stroke="#ec6a2c" stroke-width="2" stroke-dasharray="7 7"/>
+<text x="670.0" y="304" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" font-weight="600" fill="#ec6a2c">unit by unit, until the fallback rate is 0</text>
+<rect x="331.0" y="328" width="150" height="56" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="406.0" y="363" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="20" font-weight="700" fill="#e6edf3">bridge</text>
+<line x1="481.0" y1="356" x2="498.0" y2="356" stroke="#6e7681" stroke-width="2"/><path d="M497.0,350 L507.0,356 L497.0,362 Z" fill="#6e7681"/>
+<rect x="507.0" y="328" width="150" height="56" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="582.0" y="363" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="20" font-weight="700" fill="#e6edf3">port</text>
+<line x1="657.0" y1="356" x2="674.0" y2="356" stroke="#6e7681" stroke-width="2"/><path d="M673.0,350 L683.0,356 L673.0,362 Z" fill="#6e7681"/>
+<rect x="683.0" y="328" width="150" height="56" rx="12" fill="#161b22" stroke="#ec6a2c" stroke-width="2"/>
+<text x="758.0" y="363" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="20" font-weight="700" fill="#e6edf3">gate</text>
+<line x1="833.0" y1="356" x2="850.0" y2="356" stroke="#6e7681" stroke-width="2"/><path d="M849.0,350 L859.0,356 L849.0,362 Z" fill="#6e7681"/>
+<rect x="859.0" y="328" width="150" height="56" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+<text x="934.0" y="363" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="20" font-weight="700" fill="#e6edf3">wire</text>
+<text x="670.0" y="418" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" fill="#9da7b3">app replay stays at 100% while fewer cases fall back</text>
+<line x1="895.0" y1="190" x2="895.0" y2="261" stroke="#ec6a2c" stroke-width="2"/><path d="M889.0,260 L895.0,270 L901.0,260 Z" fill="#ec6a2c"/>
+<rect x="1130" y="40" width="200" height="150" rx="16" fill="#ec6a2c" stroke="#ec6a2c" stroke-width="2"/>
+<text x="1150" y="74" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14" font-weight="700" fill="#ffffff">DONE</text>
+<text x="1150" y="110" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="24" font-weight="700" fill="#ffffff">lift</text>
+<text x="1150" y="140" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" fill="#ffffff">A pure Rust app,</text>
+<text x="1150" y="162" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" fill="#ffffff">no fallback left.</text>
+<path d="M1040,355.0 C1230.0,355.0 1230.0,355.0 1230.0,202" fill="none" stroke="#ec6a2c" stroke-width="2"/>
+<path d="M1224.0,204 L1230.0,193 L1236.0,204 Z" fill="#ec6a2c"/>
+</svg>

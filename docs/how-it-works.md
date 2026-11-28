@@ -114,6 +114,15 @@ of your machine, and it falls back to the original when the module does not load
 unit's switch to `original` for the original's side, so an enabled unit is still measured
 against the original. Other languages switch through the shadow module.
 
+Every switch is logged. `enable`, `disable`, `app wire`, `app lift` and `go` (when it switches a
+unit on) append a line to `rust/audit.jsonl`, and so does every `gate`, passed or failed: the time
+in UTC, the command, the unit and crate, the functions switched, gate's check and case counts, the
+rust-anything version and the repository's commit. An `enable --force` is marked `"forced": true`
+(FORCED in `rust-anything log`), with the last diff it skipped past. The file is only appended to,
+holds no user name, email or absolute path, and is meant to be committed with the port.
+`rust-anything log <repo>` prints it (`--json` for the entries), and `map` shows each port's
+last switch.
+
 ## One build cache
 
 Ports and bridges build into one cargo target folder: `CARGO_TARGET_DIR` when it is set, else

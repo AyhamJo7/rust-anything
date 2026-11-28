@@ -79,6 +79,15 @@ pub fn shadow(crate_dir: &Path, out: Option<&Path>) -> Result<ShadowOutcome> {
                 .display()
         );
     }
+    if manifest.language == crate::lang::Lang::Swift {
+        bail!(
+            "Swift binds calls when it compiles, so there is no shadow module for Swift yet; once \
+             `diff` passes, compile {} into the target in place of the original file",
+            crate_dir
+                .join(crate::codegen_swift::wrapper_path(&manifest))
+                .display()
+        );
+    }
     if manifest.language == crate::lang::Lang::Csharp {
         bail!(
             "C# binds calls when it compiles, so there is no shadow module for C# yet; once `diff` \

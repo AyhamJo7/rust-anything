@@ -1,6 +1,6 @@
 ---
 name: rust-anything
-description: Port or migrate TypeScript/JavaScript, Python, C, Go, Ruby, Java, Kotlin, PHP, C# and PowerShell to Rust with the rust-anything CLI or MCP tools, from one hot function up to a whole app rewritten as a pure Rust app - profile, plan, bridge one unit at a time, record the original's behavior, port, diff, bench, shadow and gate; batch hot loops so they run in Rust on all cores. Use when asked to rewrite, port or migrate code or an app to Rust, to plan such a migration, or to make slow code faster with Rust.
+description: Port or migrate TypeScript/JavaScript, Python, C, Go, Ruby, Java, Kotlin, PHP, C#, PowerShell and Swift to Rust with the rust-anything CLI or MCP tools, from one hot function up to a whole app rewritten as a pure Rust app - profile, plan, bridge one unit at a time, record the original's behavior, port, diff, bench, shadow and gate; batch hot loops so they run in Rust on all cores. Use when asked to rewrite, port or migrate code or an app to Rust, to plan such a migration, or to make slow code faster with Rust.
 ---
 
 # Migration to Rust with rust-anything
@@ -21,7 +21,8 @@ Rust, and the traps that made recorded cases differ.
 [typescript.md](languages/typescript.md) (TS and JS), [python.md](languages/python.md),
 [go.md](languages/go.md), [ruby.md](languages/ruby.md), [java.md](languages/java.md),
 [kotlin.md](languages/kotlin.md), [c.md](languages/c.md), [php.md](languages/php.md),
-[csharp.md](languages/csharp.md), [powershell.md](languages/powershell.md).
+[csharp.md](languages/csharp.md), [powershell.md](languages/powershell.md),
+[swift.md](languages/swift.md).
 
 Tools: the `rust-anything` CLI, or the same steps as MCP tools (`rust-anything mcp`): `go`,
 `profile`, `analyze`, `bridge`, `refresh`, `record`, `build`, `diff`, `bench`, `shadow`, `gate`,

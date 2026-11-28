@@ -181,7 +181,12 @@ fn driver_command(crate_dir: &Path, bin: &Path) -> Command {
     cmd
 }
 
-pub fn record(crate_dir: &Path, m: &Manifest, cases: &[Value]) -> Result<PathBuf> {
+pub fn record(
+    crate_dir: &Path,
+    m: &Manifest,
+    cases: &[Value],
+    sandbox: Option<&Path>,
+) -> Result<PathBuf> {
     let bin = build_driver(crate_dir, m, false)?;
     let slim: Vec<Value> = cases
         .iter()
@@ -193,6 +198,7 @@ pub fn record(crate_dir: &Path, m: &Manifest, cases: &[Value]) -> Result<PathBuf
         &crate_dir.join(WORK_DIR),
         &out,
         "Go driver (record)",
+        sandbox,
         |inputs, part| {
             let mut cmd = Command::new(&bin);
             cmd.arg("record").arg(inputs).arg(part);

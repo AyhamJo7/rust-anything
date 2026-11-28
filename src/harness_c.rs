@@ -155,7 +155,12 @@ fn python() -> Command {
     cmd
 }
 
-pub fn record(crate_dir: &Path, manifest: &Manifest, cases: &[Value]) -> Result<PathBuf> {
+pub fn record(
+    crate_dir: &Path,
+    manifest: &Manifest,
+    cases: &[Value],
+    sandbox: Option<&Path>,
+) -> Result<PathBuf> {
     let original = build_original(crate_dir, manifest)?;
     let (driver, sigs) = driver(crate_dir, manifest)?;
     let out = crate_dir.join(CASES);
@@ -164,6 +169,7 @@ pub fn record(crate_dir: &Path, manifest: &Manifest, cases: &[Value]) -> Result<
         &crate_dir.join(WORK_DIR),
         &out,
         "python (ctypes)",
+        sandbox,
         |inputs, part| {
             let mut cmd = python();
             cmd.arg(&driver)

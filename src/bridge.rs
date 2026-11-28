@@ -963,7 +963,7 @@ fn parse_batches(specs: &[String]) -> Result<Vec<crate::codegen_batch::Batch>> {
 fn ensure_batch_support(lang: crate::lang::Lang, kind: Kind) -> Result<()> {
     use crate::lang::Lang;
     let unsupported = match lang {
-        Lang::C | Lang::Php | Lang::Csharp | Lang::Powershell => Some(lang.name()),
+        Lang::C | Lang::Php | Lang::Csharp | Lang::Powershell | Lang::Swift => Some(lang.name()),
         _ if kind == Kind::CAbi => Some(Lang::C.name()),
         _ => None,
     };
@@ -1370,7 +1370,8 @@ pub fn bridge(opts: &Options) -> Result<Outcome> {
         | Bridge::Jni
         | Bridge::PhpFfi
         | Bridge::DotnetFfi
-        | Bridge::PwshFfi => Kind::Ffi,
+        | Bridge::PwshFfi
+        | Bridge::SwiftFfi => Kind::Ffi,
         _ => Kind::Napi,
     });
     if !opts.batch.is_empty() {
@@ -1804,6 +1805,13 @@ fn ffi_bindings(m: &Manifest, api: &codegen::PortApi) -> Result<Vec<(String, Str
                 crate::codegen_powershell::wrapper(m),
             ));
         }
+        crate::lang::Lang::Swift => {
+            files.push((
+                crate::codegen_swift::wrapper_path(m),
+                crate::codegen_swift::wrapper(m),
+            ));
+            files.extend(crate::codegen_swift::module_files(m));
+        }
         crate::lang::Lang::Java | crate::lang::Lang::Kotlin => {
             files.extend(crate::codegen_java::wrappers(m, api));
             files.extend(
@@ -1852,7 +1860,7 @@ fn bridge_ffi(manifest: &Manifest, crate_dir: &Path, kept: &[JsOnly]) -> Result<
         ("src/port.rs".into(), port),
         (
             ".gitignore".into(),
-            "target/\n.rust-anything/\nruby/*.so\nruby/*.bundle\nphp/*.so\nphp/*.dylib\nphp/*.dll\ncs/*.so\ncs/*.dylib\ncs/*.dll\nps/*.so\nps/*.dylib\nps/*.dll\n".into(),
+            "target/\n.rust-anything/\nruby/*.so\nruby/*.bundle\nphp/*.so\nphp/*.dylib\nphp/*.dll\ncs/*.so\ncs/*.dylib\ncs/*.dll\nps/*.so\nps/*.dylib\nps/*.dll\nswift/*.so\nswift/*.dylib\nswift/*.dll\n".into(),
         ),
         ("README.md".into(), readme(manifest)),
         (
@@ -1948,7 +1956,7 @@ fn readme(m: &Manifest) -> String {
         Kind::Ffi => "shared library",
     };
     let shadow = match m.language {
-        Lang::Php | Lang::Csharp | Lang::Powershell => String::new(),
+        Lang::Php | Lang::Csharp | Lang::Powershell | Lang::Swift => String::new(),
         _ => "rust-anything shadow .   # run both in the app, log mismatches\n".into(),
     };
     let switch = match m.language {
@@ -1967,6 +1975,13 @@ fn readme(m: &Manifest) -> String {
             "\nC# has no shadow module: once `diff` passes, compile `{}` into the project and call \
              the `<namespace>.Rust` classes, with the built library next to the app.\n",
             crate::codegen_csharp::wrapper_path(m)
+        ),
+        Lang::Swift => format!(
+            "\nSwift has no shadow module: once `diff` passes, compile `{}` into the target in place \
+             of the original file, with `swift/` on the import path (`-I swift`) and the built \
+             library on the link path (`-L swift`). A Rust panic stops the program, as a Swift \
+             trap does.\n",
+            crate::codegen_swift::wrapper_path(m)
         ),
         _ => String::new(),
     };

@@ -1328,3 +1328,50 @@ prefixes = ["androidx.", "android."]
 crates = "-"
 fit = "none"
 note = "The Android framework is the platform the port runs under, not a library it replaces."
+
+[[swift]]
+names = ["swift-argument-parser", "ArgumentParser"]
+crates = "clap"
+fit = "good"
+
+[[swift]]
+names = ["swift-collections", "Collections", "OrderedCollections", "DequeModule"]
+crates = "indexmap, std::collections::VecDeque"
+fit = "good"
+
+[[swift]]
+names = ["swift-algorithms", "Algorithms"]
+crates = "itertools"
+fit = "good"
+
+[[swift]]
+names = ["swift-numerics", "Numerics", "RealModule", "ComplexModule"]
+crates = "num-traits, num-complex"
+fit = "good"
+
+[[swift]]
+names = ["swift-log", "Logging"]
+crates = "tracing"
+fit = "good"
+
+[[swift]]
+names = ["swift-crypto", "Crypto"]
+crates = "sha2, hmac, aes-gcm, ed25519-dalek"
+fit = "partial"
+note = "One crate per primitive; check each algorithm the code calls."
+
+[[swift]]
+names = ["Yams"]
+crates = "saphyr, serde_yaml_ng"
+fit = "partial"
+
+[[swift]]
+names = ["swift-nio", "NIO", "NIOCore", "NIOHTTP1", "Vapor", "Hummingbird"]
+crates = "tokio, hyper, axum"
+fit = "none"
+note = "A server framework is an application rewrite, not a port."
+
+[[swift]]
+names = ["Alamofire"]
+crates = "reqwest"
+fit = "partial"

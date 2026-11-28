@@ -41,6 +41,7 @@ fn ruby_recording_fails_on_unencodable_results_and_preserves_cases() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     };
     let first = harness::record(&opts).unwrap();
     assert!(first.cases > 0);

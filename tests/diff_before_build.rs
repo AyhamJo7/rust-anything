@@ -46,6 +46,7 @@ fn unbuilt_ts_napi_crate_reports_run_build_first() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
 

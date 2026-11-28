@@ -86,6 +86,7 @@ fn unsigned_64_bit_go_integers_keep_their_range_in_the_port() {
         module: None,
         resolve_from: None,
         node_args: &[],
+        sandbox: false,
     })
     .unwrap();
     let cases = std::fs::read_to_string(out.join("cases.jsonl")).unwrap();

@@ -46,6 +46,9 @@ fn doctor_json_lists_every_check_with_a_fix_for_each_problem() {
     ] {
         assert!(names.contains(&name), "no {name} check in {names:?}");
     }
+    if cfg!(any(target_os = "linux", target_os = "macos")) {
+        assert!(names.contains(&"sandbox"), "no sandbox check in {names:?}");
+    }
     let mcp = checks.iter().find(|c| c["name"] == "mcp server").unwrap();
     assert_eq!(mcp["status"], "ok", "{mcp}");
     assert_eq!(out.status.success(), all_required_ok, "{report:#}");
