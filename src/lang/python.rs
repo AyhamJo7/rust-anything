@@ -1529,6 +1529,42 @@ mod tests {
     }
 
     #[test]
+    fn requirement_name_reads_the_package_of_a_requirements_line() {
+        assert_eq!(requirement_name("requests").as_deref(), Some("requests"));
+        assert_eq!(
+            requirement_name("requests>=2.0").as_deref(),
+            Some("requests")
+        );
+        assert_eq!(
+            requirement_name("requests >= 2").as_deref(),
+            Some("requests")
+        );
+        assert_eq!(
+            requirement_name("uvicorn[standard]==0.30").as_deref(),
+            Some("uvicorn")
+        );
+        assert_eq!(
+            requirement_name("requests>=2.0; python_version>\"3\"").as_deref(),
+            Some("requests")
+        );
+        assert_eq!(
+            requirement_name("requests # pinned").as_deref(),
+            Some("requests")
+        );
+        assert_eq!(requirement_name("git+https://example.com/repo.git"), None);
+        assert_eq!(requirement_name("./local.whl"), None);
+    }
+
+    #[test]
+    fn normalized_name_is_the_pep_503_form() {
+        assert_eq!(normalized_name("Core_Lib.x"), "core-lib-x");
+        assert_eq!(normalized_name("Requests"), "requests");
+        assert_eq!(normalized_name("my_package"), "my-package");
+        assert_eq!(normalized_name("my.package"), "my-package");
+        assert_eq!(normalized_name("a__b..c"), "a-b-c");
+    }
+
+    #[test]
     fn unix_stdlib_is_not_external() {
         // `import fcntl` in a pure-Python package must not surface as an unknown
         // (npm) dependency: it is Unix stdlib with no PyPI counterpart to look up.

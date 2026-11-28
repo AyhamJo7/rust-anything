@@ -396,12 +396,25 @@ impl Group {
 }
 
 /// `$.items[2].name` as `$.items[].name`: the same difference at another index is the same.
+/// Digits inside a quoted key (`$["a[3]"]`) are part of the key and stay.
 fn without_indices(path: &str) -> String {
     let mut out = String::new();
     let mut chars = path.chars().peekable();
+    let mut quoted = false;
+    let mut escaped = false;
     while let Some(c) = chars.next() {
         out.push(c);
-        if c == '[' && chars.peek().is_some_and(char::is_ascii_digit) {
+        if quoted {
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                quoted = false;
+            }
+        } else if c == '"' {
+            quoted = true;
+        } else if c == '[' && chars.peek().is_some_and(char::is_ascii_digit) {
             while chars.peek().is_some_and(char::is_ascii_digit) {
                 chars.next();
             }
@@ -718,5 +731,46 @@ mod tests {
             hash(&json!({ "a": 1, "b": 2 })),
             hash(&json!({ "b": 2, "a": 1 }))
         );
+    }
+
+    #[test]
+    fn first_difference_names_the_char_and_byte_where_texts_part() {
+        // Equal texts part at the end of `expected`.
+        assert_eq!(first_difference("hello", "hello"), (5, 5));
+        assert_eq!(first_difference("", ""), (0, 0));
+        assert_eq!(first_difference("héllo", "héllo"), (5, 6));
+        // `é` and `è` are char 1, byte 1: `h` before them is one byte.
+        assert_eq!(first_difference("héllo", "hèllo"), (1, 1));
+        // After the two-byte `é`, char and byte indexes differ.
+        assert_eq!(first_difference("héllo", "héXlo"), (2, 3));
+        assert_eq!(first_difference("abc", "xbc"), (0, 0));
+        // Each text a prefix of the other parts where the shorter ends.
+        assert_eq!(first_difference("ab", "abc"), (2, 2));
+        assert_eq!(first_difference("abc", "ab"), (2, 2));
+        assert_eq!(first_difference("hé", "héllo"), (2, 3));
+        assert_eq!(first_difference("héllo", "hé"), (2, 3));
+    }
+
+    #[test]
+    fn key_path_quotes_keys_that_are_not_plain() {
+        assert_eq!(key_path("$", "name"), "$.name");
+        assert_eq!(key_path("$", "_x"), "$._x");
+        assert_eq!(key_path("$", "$ref"), "$.$ref");
+        assert_eq!(key_path("$.items[0]", "name"), "$.items[0].name");
+        assert_eq!(key_path("$", "1x"), r#"$["1x"]"#);
+        assert_eq!(key_path("$", "a b"), r#"$["a b"]"#);
+        assert_eq!(key_path("$", ""), r#"$[""]"#);
+        assert_eq!(key_path("$", "a\"b"), r#"$["a\"b"]"#);
+    }
+
+    #[test]
+    fn without_indices_drops_indices_but_keeps_quoted_keys() {
+        assert_eq!(without_indices("$.items[2].name"), "$.items[].name");
+        assert_eq!(without_indices("$[0].a[12]"), "$[].a[]");
+        assert_eq!(without_indices("$.a"), "$.a");
+        // `[3]` inside a quoted key is part of the key, not an index.
+        assert_eq!(without_indices(r#"$["a[3]"]"#), r#"$["a[3]"]"#);
+        assert_eq!(without_indices(r#"$["a[3]"].b[1]"#), r#"$["a[3]"].b[]"#);
+        assert_eq!(without_indices(r#"$["a\"[7]"][0]"#), r#"$["a\"[7]"][]"#);
     }
 }

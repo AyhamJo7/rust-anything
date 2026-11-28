@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `diff` and `app replay` keep the digits of a quoted key when they group mismatches by path:
+  `$["a[3]"]` was read as `$["a[]"]`, so a difference under the key `a[3]` was counted together
+  with one under `a[4]`. Unit tests now cover `first_difference`, `key_path`, `without_indices`,
+  and Python's `requirement_name` and `normalized_name` (#858, #859, #867 by @abiramcodes).
 - `map` with one changed unit says `**1 changed upstream** since it was recorded: re-record it`,
   not "since they were recorded: re-record them" (#853, #864 by @jay23606).
 - `analyze --whole-app` reads a Gemfile's `group(:test) do` (the parenthesized form) as a group,
