@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `analyze` no longer lists a Python project's own modules as PyPI dependencies when a script
+  imports them from its own folder (`import _kit` next to `_kit.py`) or from a folder it puts on
+  `sys.path` itself. They were reported as packages of unknown fit (`-kit`), each with a "which
+  crate replaces it" decision, and the unit that uses them was not ordered after the unit that
+  holds them (#803).
 - `profile` on Java keeps the samples of every JVM the workload starts. Each one now writes its own
   recording (`profile-<pid>.jfr`) and `profile` reads them all, where they used to share one
   `profile.jfr` and the last JVM to exit replaced the others, so work done in a child JVM (a Gradle

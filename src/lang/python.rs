@@ -465,6 +465,13 @@ pub fn resolve(from: &str, spec: &str, index: &HashMap<&str, usize>, ws: &Worksp
             return Resolution::File(i);
         }
     }
+    // A script's own folder is first on `sys.path`: a module beside the importing file is the
+    // workspace's, whatever the package roots are.
+    if let Some((dir, _)) = from.rsplit_once('/')
+        && let Some(i) = try_module(&format!("{dir}/{path}"))
+    {
+        return Resolution::File(i);
+    }
     let segments: Vec<&str> = spec.split('.').collect();
     if let Some(known) = (2..=segments.len())
         .rev()
@@ -482,9 +489,32 @@ pub fn resolve(from: &str, spec: &str, index: &HashMap<&str, usize>, ws: &Worksp
     {
         // A local package imported by a shorter path than its files: still local.
         Resolution::Unresolved
+    } else if let Some(module) = module_elsewhere(top, index) {
+        // A module in a folder the code puts on `sys.path` itself.
+        module
     } else {
         Resolution::External(top.to_lowercase().replace('_', "-"))
     }
+}
+
+/// The workspace's own `<top>.py` in some other folder, for an import no root and no sibling
+/// answered: the file when there is one, unresolved when several share the name. A name the
+/// crate table knows stays the library.
+fn module_elsewhere(top: &str, index: &HashMap<&str, usize>) -> Option<Resolution> {
+    if lookup(top).is_some() {
+        return None;
+    }
+    let file = format!("{top}.py");
+    let nested = format!("/{file}");
+    let mut found = index
+        .iter()
+        .filter(|(path, _)| **path == file || path.ends_with(&nested))
+        .map(|(_, i)| *i);
+    let first = found.next()?;
+    Some(match found.next() {
+        None => Resolution::File(first),
+        Some(_) => Resolution::Unresolved,
+    })
 }
 
 // The version-agnostic list includes Python 3.12 modules removed in 3.13;
@@ -1509,6 +1539,47 @@ mod tests {
             resolve("main.py", "site", &local, &ws),
             Resolution::File(0)
         ));
+    }
+
+    #[test]
+    fn a_module_beside_the_script_or_on_its_own_sys_path_is_local() {
+        let ws = Workspace {
+            packages: vec![],
+            files: vec![],
+        };
+        let index = HashMap::from([
+            ("hooks/_kit.py", 0),
+            ("hooks/stop_guard.py", 1),
+            ("bin/gates.py", 2),
+            ("a/util.py", 3),
+            ("b/util.py", 4),
+            ("tools/yaml.py", 5),
+        ]);
+        // `import _kit` from a script in the same folder: the script's folder is on `sys.path`.
+        assert!(matches!(
+            resolve("hooks/stop_guard.py", "_kit", &index, &ws),
+            Resolution::File(0)
+        ));
+        // `import gates` after `sys.path.insert(0, ".../bin")`: the only `gates.py` there is.
+        assert!(matches!(
+            resolve("hooks/stop_guard.py", "gates", &index, &ws),
+            Resolution::File(2)
+        ));
+        // The sibling wins over a module of the same name elsewhere.
+        assert!(matches!(
+            resolve("b/main.py", "util", &index, &ws),
+            Resolution::File(4)
+        ));
+        // Two candidates and no sibling: local, but not one file.
+        assert!(matches!(
+            resolve("hooks/stop_guard.py", "util", &index, &ws),
+            Resolution::Unresolved
+        ));
+        // A library the crate table knows is not hidden by a file of its name elsewhere.
+        match resolve("hooks/stop_guard.py", "yaml", &index, &ws) {
+            Resolution::External(name) => assert_eq!(name, "yaml"),
+            _ => panic!("yaml: not external"),
+        }
     }
 
     #[test]
