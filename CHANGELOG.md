@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A port that imports `PathBuf` (`use std::path::PathBuf;`) and uses it in a signature gets
+  bindings that compile: like `Value` and `HashMap`, the bare name is read with its path
+  (`std::path::PathBuf`) where the bindings repeat the port's types (#891).
 - `record` refuses to leave a secret in `cases.jsonl`. A recorded function that returned the
   value of an environment variable such as `API_TOKEN` or `DB_PASSWORD` wrote it into the file
   the workflow says to commit. When the recording holds the value (8 characters or more) of a
