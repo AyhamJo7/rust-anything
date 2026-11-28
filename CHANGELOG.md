@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The sandbox environment test compares variables by name and no longer prints the environment
+  when it fails, so a failing run cannot show tokens (#910, #911 by @AyhamJo7).
 - `app record` without examples or inputs names its one run in the summary ("1 run with no
   arguments", `no_args` in `--json`); `app replay --port` on a CLI recording fails instead of being
   ignored; `setup --remove` says "Removed rust-anything from" and its columns line up for Claude
