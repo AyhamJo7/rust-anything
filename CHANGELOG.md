@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The MCP `record` tool's `inputs` description mentions `"kwargs"` for Python and Ruby arguments
+  passed by keyword (#880, #903 by @OnurrUgur).
 - HTTP reads behind `app record`, `app replay` and `app shadow` retry a read that a signal
   interrupts (`Interrupted system call`) until the request's deadline, where one interrupted read
   used to fail the case with `no response: Interrupted system call` (#912 by @abiramcodes).
