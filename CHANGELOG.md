@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `map` with one changed unit says `**1 changed upstream** since it was recorded: re-record it`,
+  not "since they were recorded: re-record them" (#853, #864 by @jay23606).
 - `analyze --whole-app` reads a Gemfile's `group(:test) do` (the parenthesized form) as a group,
   so the gems inside it are development dependencies, as with `group :test do`. They were listed
   as runtime dependencies (#835, #862 by @tony88pisa).
