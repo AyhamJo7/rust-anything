@@ -1197,7 +1197,7 @@ pub fn rust_checks(crate_dir: &Path, target_dir: &Path) -> Vec<Check> {
         name: "unsafe",
         passed: unexplained.is_empty(),
         detail: if unexplained.is_empty() {
-            format!("{explained} unsafe uses, each with a `// SAFETY:` comment")
+            unsafe_pass_detail(explained)
         } else {
             format!(
                 "unsafe without a `// SAFETY:` comment: {}",
@@ -1207,6 +1207,14 @@ pub fn rust_checks(crate_dir: &Path, target_dir: &Path) -> Vec<Check> {
     });
 
     checks
+}
+
+fn unsafe_pass_detail(explained: usize) -> String {
+    match explained {
+        0 => "no unsafe code".into(),
+        1 => "1 unsafe use, with a `// SAFETY:` comment".into(),
+        _ => format!("{explained} unsafe uses, each with a `// SAFETY:` comment"),
+    }
 }
 
 /// No function in `src/port.rs` is still `unimplemented!`.
@@ -1410,7 +1418,7 @@ fn strip_code(line: &str) -> String {
 mod tests {
     use super::{
         CASES, Check, GateOutcome, TESTS_BASELINE, behavior_detail, fix_for, known_diffs_added,
-        lifted_into, spawn_fix, stubs, unsafe_blocks,
+        lifted_into, spawn_fix, stubs, unsafe_blocks, unsafe_pass_detail,
     };
 
     #[test]
@@ -1553,6 +1561,19 @@ mod tests {
         assert!(
             compile_fix.starts_with("fix the compile error above"),
             "{compile_fix}"
+        );
+    }
+
+    #[test]
+    fn unsafe_pass_detail_handles_zero_one_and_multiple_uses() {
+        assert_eq!(unsafe_pass_detail(0), "no unsafe code");
+        assert_eq!(
+            unsafe_pass_detail(1),
+            "1 unsafe use, with a `// SAFETY:` comment"
+        );
+        assert_eq!(
+            unsafe_pass_detail(2),
+            "2 unsafe uses, each with a `// SAFETY:` comment"
         );
     }
 
