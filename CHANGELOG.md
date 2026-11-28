@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The `assets` item of the `app lift` checklist no longer warns about reads of the machine's own
+  files (`/proc/`, `/sys/`, `/dev/`, `/etc/`, `/usr/`, `/var/`, `/run/`): they cannot be embedded
+  or shipped, and the warning hid the ones that can (#916).
 - `record --sandbox` and `app record --sandbox` (MCP `record` and `app_record`: `sandbox`) run
   the original with no network, its repository read-only and CPU and memory limits:
   bubblewrap on Linux (`--unshare-net`, the file system read-only apart from the run's scratch
