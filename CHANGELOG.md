@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `app record` without examples or inputs names its one run in the summary ("1 run with no
+  arguments", `no_args` in `--json`); `app replay --port` on a CLI recording fails instead of being
+  ignored; `setup --remove` says "Removed rust-anything from" and its columns line up for Claude
+  Code; the `remove` field of `app record --inputs` is in the help, the docs and the error message
+  (#838, #839, #840, #851, #893 by @abiramcodes).
 - `record --sandbox` and `app record --sandbox` (MCP `record` and `app_record`: `sandbox`) run
   the original with no network, its repository read-only and CPU and memory limits:
   bubblewrap on Linux (`--unshare-net`, the file system read-only apart from the run's scratch

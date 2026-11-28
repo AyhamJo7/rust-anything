@@ -303,7 +303,7 @@ Runs the original's code or commands.
 | --- | --- | --- | --- |
 | `repo` | string | yes | Repository root. |
 | `run` | string[] |  | Command that runs the original, paths relative to repo: ["python3", "cli.py"]. Optional after the first record. |
-| `inputs` | string |  | JSONL of extra cases: {"name", "args": [...], "stdin", "env": {...}, "files": {path: text}}. |
+| `inputs` | string |  | JSONL of extra cases: {"name", "args": [...], "stdin", "env": {...}, "files": {path: text}, "remove": [paths]}; `remove` deletes paths from the `fresh` copy before the case runs. |
 | `normalize` | string[] |  | Normalizers: timestamps, uuids, key-order, or name=regex. |
 | `name` | string |  | Name the app is invoked by in its docs. |
 | `timeout` | integer |  | Seconds before a run is killed (default 30). |

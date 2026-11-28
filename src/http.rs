@@ -1827,6 +1827,7 @@ pub(crate) fn record(
         cases: 0,
         examples: counts[0],
         inputs: counts[1],
+        no_args: 0,
         traps: counts[2],
         traps_dropped,
         noisy: Vec::new(),

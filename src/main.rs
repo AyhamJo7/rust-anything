@@ -544,7 +544,8 @@ enum AppCmd {
         /// Repository root.
         #[arg(default_value = ".")]
         repo: PathBuf,
-        /// Extra cases: JSONL of `{"name", "args": [...], "stdin", "env": {...}, "files": {path: text}}`.
+        /// Extra cases: JSONL of `{"name", "args": [...], "stdin", "env": {...}, "files": {path: text},
+        /// "remove": [paths]}`. `remove` deletes paths from the `--fresh` copy before the case runs.
         #[arg(long)]
         inputs: Option<PathBuf>,
         /// Normalizer: `timestamps`, `uuids`, `key-order`, or `name=regex` for your own. Repeatable;
@@ -866,15 +867,18 @@ fn recorded_summary(
     dir: &std::path::Path,
     examples: usize,
     inputs: usize,
+    no_args: usize,
     traps: usize,
     dropped: Option<usize>,
 ) -> String {
+    let mut parts = format!("{examples} from examples, {inputs} from inputs");
+    if no_args > 0 {
+        parts.push_str(&format!(", {} with no arguments", counted(no_args, "run")));
+    }
     let head = format!(
-        "Recorded {} in {} ({} from examples, {} from inputs, {}",
+        "Recorded {} in {} ({parts}, {}",
         counted(cases, "case"),
         dir.display(),
-        examples,
-        inputs,
         counted(traps, "trap")
     );
     match dropped {
@@ -1926,6 +1930,7 @@ fn run_app(command: AppCmd) -> Result<ExitCode> {
                     &outcome.dir,
                     outcome.examples,
                     outcome.inputs,
+                    outcome.no_args,
                     outcome.traps,
                     (outcome.traps_dropped > 0).then_some(outcome.traps_dropped)
                 )
@@ -2326,16 +2331,20 @@ mod tests {
         // already singular.
         let dir = Path::new("/tmp/app-cases");
         assert_eq!(
-            recorded_summary(1, dir, 0, 0, 1, None),
+            recorded_summary(1, dir, 0, 0, 0, 1, None),
             "Recorded 1 case in /tmp/app-cases (0 from examples, 0 from inputs, 1 trap)"
         );
         assert_eq!(
-            recorded_summary(2, dir, 1, 1, 61, None),
+            recorded_summary(2, dir, 1, 1, 0, 61, None),
             "Recorded 2 cases in /tmp/app-cases (1 from examples, 1 from inputs, 61 traps)"
         );
         assert_eq!(
-            recorded_summary(1, dir, 0, 0, 0, Some(1)),
+            recorded_summary(1, dir, 0, 0, 0, 0, Some(1)),
             "Recorded 1 case in /tmp/app-cases (0 from examples, 0 from inputs, 0 traps, 1 trap dropped)"
+        );
+        assert_eq!(
+            recorded_summary(1, dir, 0, 0, 1, 0, None),
+            "Recorded 1 case in /tmp/app-cases (0 from examples, 0 from inputs, 1 run with no arguments, 0 traps)"
         );
     }
 }
