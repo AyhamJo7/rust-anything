@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The directory plugin's description names PowerShell and Swift among the languages and in the
+  shadow exceptions (#846, #923 by @aaas72).
 - The MCP `record` tool's `inputs` description mentions `"kwargs"` for Python and Ruby arguments
   passed by keyword (#880, #903 by @OnurrUgur).
 - HTTP reads behind `app record`, `app replay` and `app shadow` retry a read that a signal
