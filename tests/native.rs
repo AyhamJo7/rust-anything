@@ -303,7 +303,11 @@ fn pyo3_dataclass_argument_crosses_as_its_fields() {
         .args([
             "-c",
             "import shop_rs as m\nfrom shop import Item\n\
-             out = m.label(Item('nut', 3))\nassert out == '3 x nut', out\n",
+             out = m.label(Item('nut', 3))\nassert out == '3 x nut', out\n\
+             loop = Item('nut', 3)\nloop.name = loop  # a field that refers back to its object\n\
+             out = m.label(loop)\nassert out == '3 x ', out\n\
+             shared = Item('nut', 3)\npair = Item(shared, 3)\npair.count = shared  # twice, no cycle\n\
+             assert m.label(pair).endswith(' x '), m.label(pair)\n",
         ])
         .output()
         .unwrap();
