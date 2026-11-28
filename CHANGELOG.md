@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `app lift` no longer fails its `cargo test` check on a recording made with `--db-reset`.
+  trycmd cannot run the command that resets state before each case, so the generated
+  `rust/app/tests/app_cases.rs` is kept but ignored (with the reason), and the `replay in CI`
+  item says to run `rust-anything app replay <repo> --build <the binary>` in CI (#906, #908 by @AyhamJo7).
 - `bench`'s advice reads in the singular for one slower or tying function ("Keep the slower one",
   "it ties") (#876, #921 by @aaas72).
 - `map --json` names a C ABI port's kind `"c-abi"`, as the manifest and `bridge --kind` do, not

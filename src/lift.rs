@@ -377,7 +377,21 @@ fn lifted_units_rs(state: &State) -> String {
     out
 }
 
-fn cases_test_rs(case_bin: &str, binary: &str, unordered: &[&String]) -> String {
+/// `rust/app/tests/app_cases.rs`: the recorded cases through trycmd. A recording that resets
+/// state before each case (`--db-reset`) cannot be run that way, since trycmd has no hook to run
+/// the reset: the test stays, ignored, and says where the cases are run.
+fn cases_test_rs(
+    case_bin: &str,
+    binary: &str,
+    unordered: &[&String],
+    reset: Option<&str>,
+) -> String {
+    if reset.is_some() {
+        return "#[test]\n\
+                #[ignore = \"the recording runs a --db-reset command before each case, which trycmd cannot: run `rust-anything app replay <repo> --build <the binary>`\"]\n\
+                fn recorded_cases() {}\n"
+            .to_string();
+    }
     let skips: String = unordered
         .iter()
         .map(|case| format!("\n        .skip(\"../app-cases/{case}.toml\")"))
@@ -456,6 +470,7 @@ fn lift_app(
     state: &mut State,
     case_bin: &str,
     unordered: &[&String],
+    reset: Option<&str>,
 ) -> Result<()> {
     if state.kind == AppKind::Library {
         return lift_library(stage_app, state);
@@ -525,7 +540,7 @@ fn lift_app(
     std::fs::write(&cargo, doc.to_string())?;
     std::fs::create_dir_all(stage_app.join("tests"))?;
     let test = stage_app.join("tests/app_cases.rs");
-    std::fs::write(&test, cases_test_rs(case_bin, &binary, unordered))?;
+    std::fs::write(&test, cases_test_rs(case_bin, &binary, unordered, reset))?;
     front_door::rustfmt(&test);
     front_door::rustfmt(&main);
     Ok(())
@@ -701,6 +716,11 @@ fn lift_app_dir(opts: &LiftOptions) -> Result<LiftOutcome> {
         Some(config) => app::cases_with_normalized_file_names(&repo, config)?,
         None => Vec::new(),
     };
+    // trycmd cannot run the command the recording resets state with before each case.
+    let reset: Option<String> = config
+        .as_ref()
+        .and_then(|c| c.effects.as_ref())
+        .and_then(|effects| effects.db_reset.clone());
     let mut skipped: Vec<&String> = unordered.clone();
     skipped.extend(renamed.iter().filter(|case| !unordered.contains(case)));
     let app_dir = repo.join(APP_DIR);
@@ -868,7 +888,13 @@ fn lift_app_dir(opts: &LiftOptions) -> Result<LiftOutcome> {
         staged_deps.push((dir, staged));
     }
     let stage_app = stage_rust.join("app");
-    lift_app(&stage_app, &mut state, &case_bin, &skipped)?;
+    lift_app(
+        &stage_app,
+        &mut state,
+        &case_bin,
+        &skipped,
+        reset.as_deref(),
+    )?;
 
     let mut checklist = Vec::new();
     for (unit, dir, staged) in &staged_units {
@@ -889,7 +915,7 @@ fn lift_app_dir(opts: &LiftOptions) -> Result<LiftOutcome> {
     }
     checklist.push(Item::new(
         "replay in CI",
-        if state.kind != AppKind::Cli || key_order || !skipped.is_empty() {
+        if state.kind != AppKind::Cli || key_order || !skipped.is_empty() || reset.is_some() {
             Mark::Warn
         } else {
             Mark::Pass
@@ -898,6 +924,8 @@ fn lift_app_dir(opts: &LiftOptions) -> Result<LiftOutcome> {
             "the recorded cases ran through the units' bindings, which the lift removes: `cargo test` on the crates is what CI keeps; turn the cases that matter into Rust tests"
         } else if state.kind == AppKind::Http {
             "trycmd runs command lines only: run `rust-anything app replay <repo> --build <the binary>` in CI for the HTTP cases"
+        } else if reset.is_some() {
+            "the recording resets state with a --db-reset command before each case, which trycmd cannot run: rust/app/tests/app_cases.rs is ignored on `cargo test`, so run `rust-anything app replay <repo> --build <the binary>` in CI"
         } else if !unordered.is_empty() {
             "rust/app/tests/app_cases.rs runs the cases with trycmd on `cargo test`, which compares line order exactly, so it skips the cases whose order the original's own runs disagreed on: also run `rust-anything app replay` in CI for them"
         } else if !renamed.is_empty() {
@@ -1034,6 +1062,24 @@ fn lift_app_dir(opts: &LiftOptions) -> Result<LiftOutcome> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_recording_that_resets_state_gets_an_ignored_cases_test() {
+        let slow = "slow".to_string();
+        let plain = cases_test_rs("tool", "tool-app", &[&slow], None);
+        assert!(plain.contains("trycmd::TestCases::new()"), "{plain}");
+        assert!(
+            plain.contains(".skip(\"../app-cases/slow.toml\")"),
+            "{plain}"
+        );
+        assert!(!plain.contains("#[ignore"), "{plain}");
+        // trycmd has no hook to run the reset command, so no case could pass: the test stays,
+        // ignored, and names where the cases run.
+        let reset = cases_test_rs("tool", "tool-app", &[&slow], Some("sh fixtures/setup.sh"));
+        assert!(reset.contains("#[ignore ="), "{reset}");
+        assert!(reset.contains("rust-anything app replay"), "{reset}");
+        assert!(!reset.contains("trycmd::TestCases"), "{reset}");
+    }
+
     #[test]
     fn a_read_of_a_system_path_is_not_an_asset() {
         let base =
