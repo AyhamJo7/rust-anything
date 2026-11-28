@@ -5,7 +5,7 @@
 - `app wire` and `app lift` keep the helper modules of `rust/app/src/units/mod.rs`: a
   `mod name;` line (with the attributes above it) that is not one of the units' glue modules
   used to be deleted when the file was rewritten, so glue that used a helper stopped compiling
-  (#895).
+  (#895, #896 by @AyhamJo7).
 - C# dependency lists leave out build-only packages and `PrivateAssets="all"` references, which
   never ship with the app (#884, #902 by @OnurrUgur).
 - `analyze --whole-app` reads a Python project's `install_requires` from `setup.cfg` (#881, #901
