@@ -391,6 +391,93 @@ fn pyo3_path_bridge_takes_and_returns_pathlib_paths() {
 }
 
 #[test]
+fn pyo3_required_optional_parameter_is_passed_none_not_left_out() {
+    if common::python().is_none() {
+        return;
+    }
+    let root = project(
+        "pyo3-required-optional",
+        &[
+            (
+                "pyproject.toml",
+                "[project]\nname = \"pickkit\"\nversion = \"0.1.0\"\n",
+            ),
+            (
+                "pickkit/__init__.py",
+                "from __future__ import annotations\n\n\n\
+                 def pick(text: str, fallback: str | None) -> str:\n\
+                 \x20   return text if fallback is None else fallback\n\n\n\
+                 def tag(name: str, suffix: str | None = None) -> str:\n\
+                 \x20   return name + (\"\" if suffix is None else suffix)\n",
+            ),
+        ],
+    );
+    let dir = root.join("port");
+    bridge::bridge(&bridge::Options {
+        root: &root,
+        unit: "pickkit/",
+        kind: Some(Kind::Pyo3),
+        out: Some(dir.clone()),
+        name: None,
+        force: false,
+        keep: Vec::new(),
+        lang: None,
+        batch: Vec::new(),
+        as_json: Vec::new(),
+        allocator: Default::default(),
+    })
+    .unwrap();
+    harness::record(&RecordOptions {
+        crate_dir: &dir,
+        count: 20,
+        inputs: None,
+        module: None,
+        resolve_from: None,
+        node_args: &[],
+    })
+    .unwrap();
+    // `pick` has no default for `fallback`: the original is called with `None`, not without it.
+    let cases = std::fs::read_to_string(dir.join("cases.jsonl")).unwrap();
+    assert!(!cases.contains("missing 1 required positional"), "{cases}");
+    let none_passed = cases.lines().any(|line| {
+        line.contains(r#""fn": "pick""#) && line.contains(r#"{"$undefined": true}], "ok""#)
+    });
+    assert!(none_passed, "no `pick(text, None)` case:\n{cases}");
+
+    let port_path = dir.join("src/port.rs");
+    let mut port = std::fs::read_to_string(&port_path).unwrap();
+    for (name, body) in [
+        ("pick", "Ok(fallback.unwrap_or(text))"),
+        (
+            "tag",
+            "Ok(format!(\"{name}{}\", suffix.unwrap_or_default()))",
+        ),
+    ] {
+        let start = port.find(&format!("pub fn {name}(")).unwrap();
+        let open = start + port[start..].find('{').unwrap();
+        let close = open + port[open..].find("\n}").unwrap();
+        port = format!("{}{{\n    {body}{}", &port[..open], &port[close..]);
+    }
+    std::fs::write(&port_path, port).unwrap();
+    harness::build(&dir).unwrap();
+    let outcome = harness::diff(&DiffOptions {
+        crate_dir: &dir,
+        module: None,
+        ignore_key_order: false,
+        node_args: &[],
+        float_tolerance: None,
+    })
+    .unwrap();
+    assert_eq!(
+        (outcome.failed, outcome.passed),
+        (0, outcome.total),
+        "{:#?}",
+        outcome.mismatches
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn pyo3_float_param_with_integer_default_builds_and_matches() {
     if common::python().is_none() {
         return;

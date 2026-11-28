@@ -15,6 +15,12 @@
   returned path is recorded by its text. Before, the parameter was `serde_json::Value` and every
   recorded case raised `AttributeError` on the dict, list or string it was given, and every
   returned path was recorded as the same `{"$repr": "PosixPath"}` (#807, #808 by @AyhamJo7).
+- `record` on Python no longer leaves out the argument of a required parameter typed `T | None`.
+  `def pick(text: str, fallback: str | None)` was called without `fallback` whenever the case's
+  value was `None`, so each of those cases recorded `TypeError: pick() missing 1 required
+  positional argument` and the call callers really make, `pick(text, None)`, was never recorded.
+  A parameter without a default now always gets its argument; trailing `None`s are still left out
+  for parameters that have a default (#809, #810 by @AyhamJo7).
 
 ## 5.0.2 (2026-11-28)
 
