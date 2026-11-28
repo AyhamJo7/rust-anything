@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `record` refuses to leave a secret in `cases.jsonl`. A recorded function that returned the
+  value of an environment variable such as `API_TOKEN` or `DB_PASSWORD` wrote it into the file
+  the workflow says to commit. When the recording holds the value (8 characters or more) of a
+  variable whose name says secret (also when the driver escaped it, as Go does `<`), `record`
+  removes the file, or empties it where the folder does not allow that, and fails, naming the
+  variable and the functions, never the value (#869, #870 by @AyhamJo7).
 - The MCP server's `initialize` instructions open with the CLI's own summary, naming all ten
   languages, instead of "Incremental TS/JS to Rust migration" (#844, #866 by @jay23606).
 - `record --pin-clock` on a unit it does not cover names the language and the bridge in words

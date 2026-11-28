@@ -69,6 +69,12 @@ read. `ts/exports.rs` reads export lists; check `bridge` on a unit written that 
 the original counted against Jest's limit. Wrap anything added to user files in
 `/* c8 ignore start */` and `/* istanbul ignore next */`.
 
+**A recording held a secret from the environment.** A recorded function that returns an
+environment variable (`os.environ.get("API_TOKEN")`) put its value into `cases.jsonl`, the file
+the workflow says to commit. `record` now fails and removes the file when it holds the value of
+a variable whose name says secret (token, password, secret, credential, API key, private key,
+8 characters or more); record with `env -u NAME`, or change the inputs.
+
 **A test command's output corrupted the MCP stream.** The child wrote to the server's stdout.
 Send every child's stdout to stderr or a pipe, never to the MCP server's stdout.
 
