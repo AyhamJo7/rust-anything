@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `bench`'s advice reads in the singular for one slower or tying function ("Keep the slower one",
+  "it ties") (#876, #921 by @aaas72).
 - `map --json` names a C ABI port's kind `"c-abi"`, as the manifest and `bridge --kind` do, not
   `"cabi"` (#873, #918 by @aaas72).
 - The `assets` item of the `app lift` checklist no longer warns about reads of the machine's own
