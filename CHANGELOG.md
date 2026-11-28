@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `doctor` checks for the Android SDK's `d8` and `android.jar` (an optional "Android build-tools"
+  line, also in `doctor --json`), which `record --profile android` needs on a device. A machine
+  without them passed `doctor` and failed at record time (#843, #863 by @jay23606).
 - `record --inputs` refuses a line with `"kwargs"` on a unit whose language has no keyword
   arguments, naming the file and line and saying to pass them in `"args"`. On a TS/JS unit the
   keyword arguments were dropped without a word and the case was recorded at the defaults
