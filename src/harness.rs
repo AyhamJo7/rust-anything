@@ -1384,6 +1384,22 @@ pub fn generate_salted(
     out
 }
 
+/// Paths for a `pathlib` parameter: relative and absolute, with no suffix, one and several, a
+/// dot file, a trailing slash, `..` and `.` segments, spaces and non-ASCII names, and the empty
+/// path (`Path("")` is `.`). None of them has to exist.
+const PATHS: &[&str] = &[
+    "",
+    ".",
+    "notes.txt",
+    "src/main.py",
+    "/tmp/report.tar.gz",
+    ".hidden",
+    "dir/",
+    "a/../b/./c.txt",
+    "my docs/ünïcödé 文件.md",
+    "/",
+];
+
 /// The semantic traps for a value of type `t`: what most often behaves differently once ported
 /// (string length and case, signed division and overflow, float printing, map and sort order).
 fn trap_values(t: &RType) -> Vec<Value> {
@@ -1456,6 +1472,7 @@ fn trap_values(t: &RType) -> Vec<Value> {
             json!({ "$bytes": [0, 1, 255] }),
             json!({ "$bytes": [104, 101, 108, 108, 111] }),
         ],
+        RType::Path => PATHS.iter().map(|p| json!({ "$path": p })).collect(),
         RType::Bool | RType::Unit => Vec::new(),
     }
 }
@@ -1788,6 +1805,7 @@ fn shaped(s: &Shape, types: &[LocalType], rng: &mut Rng, depth: usize) -> Value 
         Shape::Int => value(&RType::Int, rng),
         Shape::Bool => value(&RType::Bool, rng),
         Shape::Bytes => value(&RType::Bytes, rng),
+        Shape::Path => value(&RType::Path, rng),
         Shape::Null => Value::Null,
         Shape::Undefined => json!({ "$undefined": true }),
         Shape::LitStr(text) => Value::String(text.clone()),
@@ -1893,6 +1911,7 @@ fn value(t: &RType, rng: &mut Rng) -> Value {
             let bytes: Vec<u64> = (0..len).map(|_| rng.below(256) as u64).collect();
             json!({ "$bytes": bytes })
         }
+        RType::Path => json!({ "$path": PATHS[rng.below(PATHS.len())] }),
         RType::Unit => json!({ "$undefined": true }),
         RType::Vec(inner) => Value::Array((0..rng.below(4)).map(|_| value(inner, rng)).collect()),
         RType::Opt(inner) => {

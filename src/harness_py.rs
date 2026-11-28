@@ -239,6 +239,7 @@ import importlib
 import json
 import math
 import os
+import pathlib
 import sys
 import time
 
@@ -261,6 +262,16 @@ def enc(v, stack=()):
         # a subclass (numpy.float64 under NumPy 2) has its own repr, "np.float64(0.0)", and float()
         # would call its __float__.
         return {"$float": float.__repr__(v)} if v.is_integer() else v
+    if isinstance(v, os.PathLike):
+        # A path is its text: two different paths must not record as the same value. A name the
+        # file system could not decode holds surrogates, which the UTF-8 cases file cannot store:
+        # that one is recorded by its bytes.
+        text = os.fsdecode(v)
+        try:
+            text.encode("utf-8")
+        except UnicodeEncodeError:
+            return {"$path": {"$bytes": list(os.fsencode(v))}}
+        return {"$path": text}
     if any(v is s for s in stack):
         return {"$cycle": True}
     stack = stack + (v,)
@@ -302,6 +313,10 @@ def dec(v):
             return {dec(x) for x in inner}
         if key == "$bytes":
             return bytes(inner)
+        if key == "$path":
+            if isinstance(inner, dict):
+                return pathlib.Path(os.fsdecode(bytes(inner["$bytes"])))
+            return pathlib.Path(inner)
         if key == "$dict":
             return {dec(k): dec(x) for k, x in inner}
     if set(v) == {"$object", "attrs"} and isinstance(v["attrs"], dict):

@@ -10,6 +10,11 @@
   `sys.path` itself. They were reported as packages of unknown fit (`-kit`), each with a "which
   crate replaces it" decision, and the unit that uses them was not ordered after the unit that
   holds them (#803, #804 by @AyhamJo7).
+- Python: `pathlib.Path` (and `PurePath`, `os.PathLike`) is a bridged type. A `Path` parameter is
+  `std::path::PathBuf` in `port.rs`, `record` calls the original with real path objects, and a
+  returned path is recorded by its text. Before, the parameter was `serde_json::Value` and every
+  recorded case raised `AttributeError` on the dict, list or string it was given, and every
+  returned path was recorded as the same `{"$repr": "PosixPath"}` (#807, #808 by @AyhamJo7).
 
 ## 5.0.2 (2026-11-28)
 
