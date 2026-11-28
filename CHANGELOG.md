@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `analyze --whole-app` reads a Python project's `install_requires` from `setup.cfg` (#881, #901
+  by @OnurrUgur).
 - `analyze --whole-app` reads `gem "rspec", group: :test` and the other inline `group:` /
   `groups:` / `:group =>` options as development dependencies (#879, #900 by @OnurrUgur).
 - `map` marks a port that was never recorded as `not recorded` (and `recorded: false` in
