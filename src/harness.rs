@@ -286,6 +286,24 @@ pub(crate) fn generate_cases_salted(
                     i + 1
                 );
             }
+            let has_kwargs = match &case["kwargs"] {
+                Value::Null => false,
+                Value::Object(m) => !m.is_empty(),
+                _ => true,
+            };
+            if has_kwargs
+                && !matches!(
+                    manifest.language,
+                    crate::lang::Lang::Python | crate::lang::Lang::Ruby
+                )
+            {
+                bail!(
+                    "{}:{}: \"kwargs\" is only for Python and Ruby, and this unit is {}: pass these arguments in \"args\"",
+                    path.display(),
+                    i + 1,
+                    manifest.language.name()
+                );
+            }
             case["module"] = Value::String(module_for(&f.file)?);
             cases.push(case);
         }

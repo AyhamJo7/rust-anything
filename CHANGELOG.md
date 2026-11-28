@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `record --inputs` refuses a line with `"kwargs"` on a unit whose language has no keyword
+  arguments, naming the file and line and saying to pass them in `"args"`. On a TS/JS unit the
+  keyword arguments were dropped without a word and the case was recorded at the defaults
+  (#842, #868 by @jay23606).
 - `diff` and `app replay` keep the digits of a quoted key when they group mismatches by path:
   `$["a[3]"]` was read as `$["a[]"]`, so a difference under the key `a[3]` was counted together
   with one under `a[4]`. Unit tests now cover `first_difference`, `key_path`, `without_indices`,

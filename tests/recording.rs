@@ -724,6 +724,83 @@ fn record_inputs_rejects_unknown_export_and_lists_known() {
 }
 
 #[test]
+fn record_inputs_rejects_kwargs_on_a_typescript_unit() {
+    let dir = std::env::temp_dir().join(format!(
+        "rust-anything-inputs-kwargs-ts-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("pad.ts"),
+        "export function pad(s: string, width: number = 4): string { return s.padStart(width); }\n",
+    )
+    .unwrap();
+    let manifest_json = serde_json::json!({
+        "schema": "rust-anything/bridge@1",
+        "root": ".",
+        "unit": "pad.ts",
+        "language": "ts",
+        "kind": "napi",
+        "crate_name": "pad-rs",
+        "exports": [
+            {
+                "name": "pad",
+                "file": "pad.ts",
+                "line": 1,
+                "params": [],
+                "returns": "string",
+                "is_async": false,
+                "is_generator": false,
+                "type_params": [],
+                "uses_instanceof": false
+            }
+        ]
+    });
+    std::fs::write(
+        dir.join(rust_anything::bridge::MANIFEST),
+        manifest_json.to_string(),
+    )
+    .unwrap();
+
+    // An object and a non-object `kwargs` are both refused: the second would otherwise be dropped.
+    for (file, line) in [
+        (
+            "in_kwargs.jsonl",
+            "{\"fn\":\"pad\",\"args\":[\"x\"],\"kwargs\":{\"width\":10}}\n",
+        ),
+        (
+            "in_kwargs_str.jsonl",
+            "{\"fn\":\"pad\",\"args\":[\"x\"],\"kwargs\":\"width\"}\n",
+        ),
+    ] {
+        let in_file = dir.join(file);
+        std::fs::write(&in_file, line).unwrap();
+        let outcome = rust_anything::harness::record(&rust_anything::harness::RecordOptions {
+            crate_dir: &dir,
+            count: 1,
+            inputs: Some(&in_file),
+            module: None,
+            resolve_from: None,
+            node_args: &[],
+        });
+        let message = match outcome {
+            Err(e) => e.to_string(),
+            Ok(_) => "recorded without error".to_string(),
+        };
+        assert_eq!(
+            message,
+            format!(
+                "{}:1: \"kwargs\" is only for Python and Ruby, and this unit is TypeScript/JavaScript: pass these arguments in \"args\"",
+                in_file.display()
+            )
+        );
+    }
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn from_tests_singular_one_call() {
     if !common::have("python3") {
         return;
