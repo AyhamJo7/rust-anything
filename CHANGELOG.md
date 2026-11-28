@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `analyze` also flags TS/JS unary `~` and bitwise assignment operators (`&=`, `|=`, `^=`, `<<=`,
+  `>>=`, `>>>=`) as `Number semantics`, alongside the binary bitwise operators: all of them
+  truncate `f64` numbers to 32-bit integers (#789 by @brixtonpham).
+
 ## 5.0.2 (2026-11-28)
 
 - `profile` on Java keeps the samples of every JVM the workload starts. Each one now writes its own
