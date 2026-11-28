@@ -2324,6 +2324,36 @@ fn read_files(base: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
         .collect()
 }
 
+/// The recorded cases that wrote a file whose name a normalizer matches (a file named by a
+/// time or an id). `app replay` pairs such a file by its normalized name; a comparison by
+/// exact path, as trycmd does for the lifted `cargo test`, cannot.
+pub(crate) fn cases_with_normalized_file_names(
+    repo: &Path,
+    config: &Config,
+) -> Result<Vec<String>> {
+    let norm = Normalizers::new(config)?;
+    let mut cases = Vec::new();
+    for entry in std::fs::read_dir(cases_dir(repo))
+        .into_iter()
+        .flatten()
+        .flatten()
+    {
+        let folder = entry.file_name().to_string_lossy().into_owned();
+        let Some(case) = folder.strip_suffix(".out") else {
+            continue;
+        };
+        let renamed = read_files(&entry.path()).keys().any(|path| {
+            let written = path.to_string_lossy();
+            norm.apply(&written) != written
+        });
+        if renamed {
+            cases.push(case.to_string());
+        }
+    }
+    cases.sort();
+    Ok(cases)
+}
+
 fn load_spec(dir: &Path, path: &Path) -> Result<Spec> {
     let name = path
         .file_stem()
@@ -3486,6 +3516,23 @@ mod tests {
                 (PathBuf::from("req-2.log"), PathBuf::from("req-9.log")),
             ])
         );
+        // A case counts when a file it wrote is named by a normalized value, at any depth;
+        // what it printed does not matter.
+        let repo = temp_dir("normalized-names").unwrap();
+        let dir = cases_dir(&repo);
+        for (file, text) in [
+            ("named.out/logs/req-7.log", "x"),
+            ("plain.out/result.txt", "x"),
+            ("plain.out/at 2026-11-16T10:00:00Z.txt", "x"),
+            ("stdout-only.stdout", "req-9\n"),
+        ] {
+            let path = dir.join(file);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, text).unwrap();
+        }
+        let found = cases_with_normalized_file_names(&repo, &config).unwrap();
+        std::fs::remove_dir_all(&repo).unwrap();
+        assert_eq!(found, ["named", "plain"]);
         config.normalize.push("nope".into());
         assert!(Normalizers::new(&config).is_err());
     }

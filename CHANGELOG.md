@@ -5,7 +5,9 @@
 - `app record` and `app replay` pair a written file by its name with the normalizers applied,
   so an app that names its output by a time or an id can be replayed. Such a case used to be
   reported unstable when recorded and then failed every replay, the original's included,
-  with `file <name> (not written)` (#819).
+  with `file <name> (not written)`. `app lift` leaves such a case out of the generated
+  `cargo test`, which compares written files by exact name, and says so in its checklist
+  (#819).
 - `profile` on Java keeps the samples of every JVM the workload starts. Each one now writes its own
   recording (`profile-<pid>.jfr`) and `profile` reads them all, where they used to share one
   `profile.jfr` and the last JVM to exit replaced the others, so work done in a child JVM (a Gradle

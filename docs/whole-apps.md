@@ -96,7 +96,9 @@ rust-anything app replay . --build "target/release/mytool"
   `[..]` wildcard. `--normalize timestamps|uuids|key-order` or `--normalize name=regex` adds
   normalizers, saved with the cases. A normalizer applies to the names of written files
   too: a file the app names by a time or an id (`run-20261128T101500Z.log`) is the same
-  file in every run when a normalizer matches that part of its name.
+  file in every run when a normalizer matches that part of its name. The `cargo test` that
+  `app lift` writes compares written files by their exact names (trycmd), so it skips such
+  a case: keep `app replay` in CI for it.
 - Cases are [trycmd](https://docs.rs/trycmd) files in `rust/app-cases/`: `<case>.toml` (argv, env,
   exit code), `.stdin`, `.stdout`, `.stderr`, `.in/` (files in), `.out/` (files written), `.removed`
   (paths the case deleted, one per line) and `.effects` (what reached the `--effects` sinks). Read
