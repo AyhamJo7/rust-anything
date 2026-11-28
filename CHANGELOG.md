@@ -5,7 +5,7 @@
 - `bridge` writes the repository root of a crate inside its repository as a relative path
   (`"root": "../.."`), where it wrote the absolute one. The manifest is committed with the
   crate, and the absolute path held the machine's user and folder layout and pointed nowhere
-  in a clone (#871).
+  in a clone (#871, #872 by @AyhamJo7).
 - The MCP server's `initialize` instructions open with the CLI's own summary, naming all ten
   languages, instead of "Incremental TS/JS to Rust migration" (#844, #866 by @jay23606).
 - `record --pin-clock` on a unit it does not cover names the language and the bridge in words

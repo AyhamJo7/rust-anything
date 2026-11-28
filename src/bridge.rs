@@ -113,7 +113,7 @@ fn relative_root(crate_dir: &Path, root: &Path) -> Option<PathBuf> {
     Some(if depth == 0 {
         PathBuf::from(".")
     } else {
-        vec![".."; depth].iter().collect()
+        PathBuf::from(vec![".."; depth].join("/"))
     })
 }
 
