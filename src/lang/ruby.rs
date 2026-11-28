@@ -40,6 +40,40 @@ fn opens_a_block(line: &str) -> bool {
             .any(|kw| line.starts_with(kw))
 }
 
+/// Whether the trailing options on a `gem` line assign it to a Bundler group (`group:`,
+/// `groups:`, `:group =>`, `:groups =>`) outside string literals and `#` comments.
+fn has_inline_group(rest: &str) -> bool {
+    static INLINE_GROUP: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let pattern = INLINE_GROUP.get_or_init(|| {
+        regex::Regex::new(r#"(?:^|[,\s(])(?:groups?:(?:[^:]|$)|:groups?\s*=>)"#)
+            .expect("valid regex")
+    });
+    let mut code = String::with_capacity(rest.len());
+    let mut chars = rest.chars().peekable();
+    let mut quote: Option<char> = None;
+    while let Some(ch) = chars.next() {
+        match quote {
+            Some(q) => {
+                if ch == '\\' {
+                    let _ = chars.next();
+                } else if ch == q {
+                    quote = None;
+                    code.push(' ');
+                }
+            }
+            None => match ch {
+                '\'' | '"' => {
+                    quote = Some(ch);
+                    code.push(' ');
+                }
+                '#' => break,
+                _ => code.push(ch),
+            },
+        }
+    }
+    pattern.is_match(&code)
+}
+
 /// The structural braces of a Ruby line in source order: `(byte offset, brace)` pairs,
 /// ignoring braces inside quoted strings or after a `#` comment, so a path like
 /// `"vendor/{x}"` or a trailing `# }` opens and closes nothing. A `group` written with
@@ -202,8 +236,9 @@ fn is_group_opener(before: &str, do_block: bool) -> bool {
 /// the group context of that stretch. `inline_gems` skips comments and unrelated strings,
 /// so a decoy `gem` in a quoted string does not count.
 fn add_segment_gems(segment: &str, in_group: bool, deps: &mut Vec<String>, dev: &mut Vec<String>) {
+    let grouped = in_group || has_inline_group(segment);
     for name in inline_gems(segment) {
-        if in_group {
+        if grouped {
             dev.push(name);
         } else {
             deps.push(name);
@@ -1069,6 +1104,25 @@ gem "rack"
         let (deps, dev) = gem_names(gemfile);
         assert_eq!(deps, ["rake", "rack"]);
         assert_eq!(dev, ["rspec", "factory_bot", "minitest"]);
+    }
+
+    #[test]
+    fn inline_group_options_go_to_dev_deps() {
+        let gemfile = r#"source "https://rubygems.org"
+gem "rack"
+gem "rspec", group: :test
+gem "debug", "~> 1.9", groups: [:development, :test]
+gem "rubocop", :group => :development
+gem "minitest", :groups => [:test]
+gem("pry", :group=>:development)
+gem "my_group"
+gem "sinatra", require: "group: :test"
+gem "puma" # group: :test
+gem "faraday", my_group: :test
+"#;
+        let (deps, dev) = gem_names(gemfile);
+        assert_eq!(deps, ["rack", "my_group", "sinatra", "puma", "faraday"]);
+        assert_eq!(dev, ["rspec", "debug", "rubocop", "minitest", "pry"]);
     }
 
     #[test]

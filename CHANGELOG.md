@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `analyze --whole-app` reads `gem "rspec", group: :test` and the other inline `group:` /
+  `groups:` / `:group =>` options as development dependencies (#879, #900 by @OnurrUgur).
 - `map` marks a port that was never recorded as `not recorded` (and `recorded: false` in
   `--json`), where it said its original had not changed since recording (#878, #899 by
   @OnurrUgur).
