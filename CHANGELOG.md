@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The report card counts one recorded case in the singular in its headline and label (#887, #890
+  by @XiaoBinGan).
 - The directory plugin's description names PowerShell and Swift among the languages and in the
   shadow exceptions (#846, #923 by @aaas72).
 - The MCP `record` tool's `inputs` description mentions `"kwargs"` for Python and Ruby arguments
